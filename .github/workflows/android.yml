@@ -31,7 +31,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build StormPulse APK
-        run: gradle :app:assembleDebug
+        run: gradle :app:assembleDebug --stacktrace --info
 
       - name: Upload StormPulse APK
         uses: actions/upload-artifact@v4
@@ -40,3 +40,5 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+
+    
