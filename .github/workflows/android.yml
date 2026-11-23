@@ -36,6 +36,15 @@ jobs:
       - name: Run Android lint checks
         run: gradle :app:lintDebug --stacktrace --warning-mode all
 
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: StormPulse-Lint-Reports
+          path: app/build/reports/lint-results-*.html
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Build debug and release variants
         run: gradle :app:assembleDebug :app:assembleRelease --stacktrace --warning-mode all
 
