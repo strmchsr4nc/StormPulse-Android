@@ -71,6 +71,32 @@ class RouteWeatherMonitorTest {
     }
 
     @Test
+    fun ignoresWarningPolygonAlreadyPassed() {
+        val assessment = RouteWeatherMonitor().assess(
+            route = route,
+            hazards = listOf(hazard("passed", "Tornado Warning", -79.8, -79.6)),
+            currentLocation = GeoPoint(35.5, -79.0),
+            checkedAtEpochMillis = 10_000L,
+            dataReceivedAtEpochMillis = 10_000L
+        )
+
+        assertTrue(assessment.alerts.isEmpty())
+    }
+
+    @Test
+    fun keepsOnRouteWarningWhileCurrentLocationIsInsidePolygon() {
+        val assessment = RouteWeatherMonitor().assess(
+            route = route,
+            hazards = listOf(hazard("inside", "Tornado Warning", -79.8, -79.6)),
+            currentLocation = GeoPoint(35.5, -79.7),
+            checkedAtEpochMillis = 10_000L,
+            dataReceivedAtEpochMillis = 10_000L
+        )
+
+        assertEquals(RouteAlertStatus.ON_ROUTE, assessment.alerts.single().status)
+    }
+
+    @Test
     fun ignoresAlertsBeyondNearbyDistance() {
         val assessment = RouteWeatherMonitor().assess(
             route = route,
