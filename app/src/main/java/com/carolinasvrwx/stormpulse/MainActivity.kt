@@ -4,6 +4,8 @@ import android.Manifest
 import android.annotation.SuppressLint
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
@@ -34,13 +36,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var progress: ProgressBar
     private lateinit var errorView: TextView
+    private lateinit var locationPermissionLauncher: ActivityResultLauncher<Array<String>>
     private var pendingGeoOrigin: String? = null
     private var pendingGeoCallback: GeolocationPermissions.Callback? = null
 
     companion object {
         private const val HOME_URL = "https://carolinasevereweatherresearch.base44.app/"
         private const val HOME_HOST = "carolinasevereweatherresearch.base44.app"
-        private const val LOCATION_REQUEST = 4102
         private val APP_BACKGROUND = Color.rgb(7, 17, 31)
         private val ACCENT = Color.rgb(38, 183, 232)
     }
@@ -48,6 +50,15 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        locationPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { grants ->
+            val granted = grants.values.any { it }
+            pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
+            pendingGeoCallback = null
+            pendingGeoOrigin = null
+            if (!granted) Toast.makeText(this, "Location access wasn't granted. StormPulse location features may be limited.", Toast.LENGTH_LONG).show()
+        }
         window.statusBarColor = APP_BACKGROUND
         window.navigationBarColor = APP_BACKGROUND
 
@@ -60,7 +71,7 @@ class MainActivity : ComponentActivity() {
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(24, 43, 62))
         }
         errorView = TextView(this).apply {
-            text = "STORMPULSE\n\nUnable to connect. Check your internet connection, then tap here to try again."
+            text = "STORMPULSE\\n\\nUnable to connect. Check your internet connection, then tap here to try again."
             setTextColor(Color.WHITE)
             textSize = 16f
             gravity = Gravity.CENTER
@@ -191,9 +202,8 @@ class MainActivity : ComponentActivity() {
                 } else {
                     pendingGeoOrigin = origin
                     pendingGeoCallback = callback
-                    requestPermissions(
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-                        LOCATION_REQUEST
+                    locationPermissionLauncher.launch(
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
                     )
                 }
             }
@@ -216,17 +226,6 @@ class MainActivity : ComponentActivity() {
     private fun hasLocationPermission(): Boolean =
         checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_REQUEST) {
-            val granted = grantResults.any { it == PackageManager.PERMISSION_GRANTED }
-            pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
-            pendingGeoCallback = null
-            pendingGeoOrigin = null
-            if (!granted) Toast.makeText(this, "Location access wasn't granted. StormPulse location features may be limited.", Toast.LENGTH_LONG).show()
-        }
-    }
 
     override fun onSaveInstanceState(outState: Bundle) {
         if (this::webView.isInitialized) webView.saveState(outState)
