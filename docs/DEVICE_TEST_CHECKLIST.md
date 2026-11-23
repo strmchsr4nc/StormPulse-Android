@@ -1,29 +1,38 @@
-# StormPulse Android — device test checklist
+# StormPulse Android and Android Auto device test checklist
 
-Run these checks on a physical Android phone before distributing the app.
+Complete these checks on real hardware before public distribution. CI success alone does not replace device testing.
 
-## Install and launch
+## Phone app
+
 - [ ] Install the debug APK on Android 7.0 or newer.
-- [ ] Confirm the launcher label is StormPulse and the radar-themed icon appears.
-- [ ] Launch on Wi-Fi and mobile data.
-- [ ] Confirm the live Base44 StormPulse home screen loads.
+- [ ] Confirm StormPulse launcher label and icon.
+- [ ] Launch on Wi-Fi and mobile data; verify the hosted Base44 home loads.
+- [ ] Test map gestures and each website navigation area.
+- [ ] Test login/session behavior and external sign-in redirects.
+- [ ] Test Back navigation, external HTTP(S), email, and telephone links.
+- [ ] Test geolocation allow/deny and confirm prompts are limited to the StormPulse origin.
+- [ ] Rotate, background, and restore the app.
+- [ ] Disable network, verify failure UI, restore network, and retry.
+- [ ] Open native Navigation from the launcher shortcut; grant/deny location; test destination search, route calculation, GPS marker, route summary, turn prompts, rerouting, and map-app chooser.
 
-## Core website behavior
-- [ ] Pan and zoom the live radar map.
-- [ ] Open each navigation area: Layers, Route, Alerts, Quakes, Tsunami, Storm Data, SPC, Space, SW Alerts, Seismos, Volcanoes, and Airports.
-- [ ] Confirm map tiles and data layers load over HTTPS.
-- [ ] Confirm login/session behavior if the site requires sign-in.
+## Android Auto / Desktop Head Unit
 
-## Android integration
-- [ ] Test Android Back navigation within StormPulse.
-- [ ] Test external links, email links, and telephone links.
-- [ ] Test location permission allow and deny flows.
-- [ ] Confirm location is only granted to the StormPulse website origin.
-- [ ] Rotate the device and background/restore the app.
-- [ ] Disable network, confirm the retry screen appears, then restore network and retry.
+- [ ] Confirm StormPulse appears as a navigation app on a supported Android Auto host.
+- [ ] Confirm the host accepts the app's minimum Car App API level 2.
+- [ ] Connect with no active route; verify the idle guidance screen and map surface.
+- [ ] Start a route on the phone; verify destination, maneuver, and trip estimates update in the car.
+- [ ] Verify route line and GPS marker draw on the car surface.
+- [ ] Test pan mode and map zoom/scroll on supported hosts.
+- [ ] Stop navigation from the host; verify the car UI exits navigation cleanly and the phone state remains consistent.
+- [ ] Disconnect/reconnect Android Auto; verify callbacks, map surface, and navigation state are cleaned up and restored.
+- [ ] Test GPS loss, network loss, expired/stale NWS alerts, and recovery.
+- [ ] Verify voice guidance and weather announcements are audible without overlapping or repeating excessively.
 
 ## Release readiness
+
+- [ ] Run CI unit tests, Android lint, debug assembly, and release assembly with no errors.
 - [ ] Test on the intended Samsung device and at least one other Android device.
-- [ ] Review Base44 authentication redirects and any external sign-in providers.
-- [ ] Confirm privacy policy and location-use disclosure are available from the website.
-- [ ] Create and securely back up a release signing key before publishing.
+- [ ] Test in a real vehicle only when safely parked; do not interact with the app while driving.
+- [ ] Confirm privacy policy and location-use disclosure are available.
+- [ ] Configure and securely back up the release signing key.
+- [ ] Complete Android for Cars app-quality and Play Console requirements.
