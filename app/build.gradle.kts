@@ -24,6 +24,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
 }
@@ -34,6 +35,8 @@ dependencies {
     implementation("androidx.car.app:app-projected:1.7.0")
     // OpenStreetMap renderer for the separate native navigation screen.
     implementation("org.osmdroid:osmdroid-android:6.1.20")
+    // Backport java.time APIs for the minSdk 24 devices supported by StormPulse.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
