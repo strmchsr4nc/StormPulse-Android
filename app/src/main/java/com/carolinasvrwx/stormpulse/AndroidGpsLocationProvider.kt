@@ -105,7 +105,7 @@ class AndroidGpsLocationProvider(
     }
 
     fun stop() {
-        if (!listening) return
+        // Always attempt cleanup: registration can partially succeed before a provider throws.
         runCatching { locationManager.removeUpdates(listener) }
         listening = false
     }
