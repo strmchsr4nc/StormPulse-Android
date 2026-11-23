@@ -133,11 +133,12 @@ class NavigationActivity : Activity() {
             destinationInput.setText(match.formattedAddress)
             val target = RouteDestination(match.formattedAddress, match.point)
             destinationMarker?.let { map.overlays.remove(it) }
-            destinationMarker = Marker(map).apply {
+            val marker = Marker(map).apply {
                 position = match.point.toOsmPoint(); title = match.formattedAddress
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             }
-            map.overlays.add(destinationMarker)
+            destinationMarker = marker
+            map.overlays.add(marker)
             routeSession.navigateTo(target)
             statusText.text = "Calculating route…"
         }, { error ->
@@ -148,13 +149,14 @@ class NavigationActivity : Activity() {
 
     private fun drawRoute(route: PlannedRoute) {
         routeLine?.let { map.overlays.remove(it) }
-        routeLine = Polyline().apply {
+        val line = Polyline().apply {
             setPoints(route.geometry.map { it.toOsmPoint() })
             outlinePaint.color = Color.rgb(25, 135, 245)
             outlinePaint.strokeWidth = dp(6).toFloat()
             title = "StormPulse route"
         }
-        map.overlays.add(routeLine)
+        routeLine = line
+        map.overlays.add(line)
         route.geometry.firstOrNull()?.let { map.controller.setCenter(it.toOsmPoint()) }
         map.controller.setZoom(14.0)
         map.invalidate()
