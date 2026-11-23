@@ -50,22 +50,29 @@ class RouteSessionCoordinator(
 
     /** Starts or replaces navigation to a destination using the freshest GPS fix. */
     fun navigateTo(target: RouteDestination) {
-        val origin: GeoPoint
-        val requestGeneration: Long
-        synchronized(lock) {
+        var origin: GeoPoint? = null
+        var requestGeneration = 0L
+        val hasStarted = synchronized(lock) {
             if (closed) return
-            origin = latestFix ?: run {
-                listener.onError(IllegalStateException("Waiting for a GPS location before calculating the route."))
-                return
+            val fix = latestFix
+            if (fix == null) {
+                false
+            } else {
+                origin = fix
+                destination = target
+                activeRoute = null
+                requestInFlight = true
+                lastRerouteAt = Long.MIN_VALUE
+                generation += 1
+                requestGeneration = generation
+                true
             }
-            destination = target
-            activeRoute = null
-            requestInFlight = true
-            lastRerouteAt = Long.MIN_VALUE
-            generation += 1
-            requestGeneration = generation
         }
-        calculate(origin, target, false, 0.0, requestGeneration)
+        if (!hasStarted) {
+            listener.onError(IllegalStateException("Waiting for a GPS location before calculating the route."))
+            return
+        }
+        calculate(origin!!, target, false, 0.0, requestGeneration)
     }
 
     fun currentRoute(): PlannedRoute? = synchronized(lock) { activeRoute }
