@@ -11,8 +11,8 @@ android {
         applicationId = "com.carolinasvrwx.stormpulse"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.1.0"
     }
 
     buildTypes {
@@ -26,4 +26,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+}
+
+dependencies {
+    // Android Auto projected-display support; phone UI remains the existing WebView.
+    implementation("androidx.car.app:app:1.7.0")
+    implementation("androidx.car.app:app-projected:1.7.0")
 }
