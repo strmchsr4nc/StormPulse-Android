@@ -32,6 +32,8 @@ dependencies {
     // Android Auto projected-display support; phone UI remains the existing WebView.
     implementation("androidx.car.app:app:1.7.0")
     implementation("androidx.car.app:app-projected:1.7.0")
+    // OpenStreetMap renderer for the separate native navigation screen.
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
