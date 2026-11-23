@@ -33,6 +33,7 @@ class RouteWeatherNavigationSession(
     private val routeSnapshot = route.toList()
     @Volatile private var latestLocation: GeoPoint? = null
     @Volatile private var active = false
+    @Volatile private var closed = false
 
     init {
         require(routeSnapshot.size >= 2) { "A navigation route needs at least two points." }
@@ -42,7 +43,7 @@ class RouteWeatherNavigationSession(
     /** Begin periodic monitoring. The first assessment runs as soon as a location is available. */
     @Synchronized
     fun start() {
-        if (active) return
+        if (closed || active) return
         active = true
         scheduler.scheduleWithFixedDelay(
             { refreshIfReady() },
@@ -82,9 +83,11 @@ class RouteWeatherNavigationSession(
     /** Stop monitoring and release the speech engine. This session cannot be restarted. */
     @Synchronized
     fun close() {
-        if (!active && scheduler.isShutdown) return
+        if (closed) return
+        closed = true
         active = false
         scheduler.shutdownNow()
         announcer.close()
+        coordinator.close()
     }
 }
