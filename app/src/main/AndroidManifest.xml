@@ -19,6 +19,11 @@
             android:resource="@xml/automotive_app_desc" />
 
         <activity
+            android:name=".NavigationActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
+        <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="true"
