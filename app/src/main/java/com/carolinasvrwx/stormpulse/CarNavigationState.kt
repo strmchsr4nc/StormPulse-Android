@@ -18,9 +18,16 @@ data class CarNavigationSnapshot(
 object CarNavigationState {
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var snapshot = CarNavigationSnapshot()
-    @Volatile private var listener: (() -> Unit)? = null\n    @Volatile private var carHostActive: Boolean = false
+    @Volatile private var listener: (() -> Unit)? = null
+    @Volatile private var carHostActive: Boolean = false
 
-    fun current(): CarNavigationSnapshot = snapshot\n\n    fun isCarHostActive(): Boolean = carHostActive\n\n    fun setCarHostActive(active: Boolean) {\n        carHostActive = active\n    }
+    fun current(): CarNavigationSnapshot = snapshot
+
+    fun isCarHostActive(): Boolean = carHostActive
+
+    fun setCarHostActive(active: Boolean) {
+        carHostActive = active
+    }
 
     fun setListener(callback: (() -> Unit)?) {
         listener = callback
