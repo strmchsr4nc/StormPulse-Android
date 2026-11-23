@@ -52,7 +52,7 @@ object RouteHazardMatcher {
                 hazard.expiresAtEpochMillis <= nowEpochMillis
             ) return@mapNotNull null
 
-            val segmentIndex = route.indices.dropLast(1).firstOrNull { index ->
+            val segmentIndex = (0 until route.lastIndex).firstOrNull { index ->
                 segmentIntersectsPolygon(route[index], route[index + 1], hazard.polygon)
             } ?: return@mapNotNull null
             RouteHazardMatch(hazard, segmentIndex)
