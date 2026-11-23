@@ -15,6 +15,7 @@ import android.view.Gravity
 import android.view.View
 import android.webkit.GeolocationPermissions
 import android.webkit.SafeBrowsingResponse
+import androidx.annotation.RequiresApi
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -140,6 +141,7 @@ class MainActivity : Activity() {
                 errorView.visibility = View.VISIBLE
             }
 
+            @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)
             override fun onSafeBrowsingHit(
                 view: WebView?, request: WebResourceRequest?, threatType: Int,
                 callback: SafeBrowsingResponse?
