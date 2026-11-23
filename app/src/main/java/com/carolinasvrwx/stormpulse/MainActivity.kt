@@ -3,6 +3,9 @@ package com.carolinasvrwx.stormpulse
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -72,8 +75,24 @@ class MainActivity : Activity() {
         setContentView(root)
 
         configureWebView()
+        publishNavigationShortcut()
 
         if (savedInstanceState == null) webView.loadUrl(HOME_URL) else webView.restoreState(savedInstanceState)
+    }
+
+    /** Adds navigation to the launcher icon's long-press shortcuts without changing the home screen UI. */
+    private fun publishNavigationShortcut() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N_MR1) return
+        val manager = getSystemService(ShortcutManager::class.java) ?: return
+        val shortcut = ShortcutInfo.Builder(this, "stormpulse_navigation")
+            .setShortLabel("Navigation")
+            .setLongLabel("Open StormPulse Navigation")
+            .setIcon(Icon.createWithResource(this, R.drawable.ic_stormpulse))
+            .setIntent(Intent(this, NavigationActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
+            })
+            .build()
+        manager.dynamicShortcuts = listOf(shortcut)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
