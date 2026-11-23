@@ -142,6 +142,7 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
 
     init {
         lifecycle.addObserver(lifecycleObserver)
+        streetMap.onResume()
         navigationManager.setNavigationManagerCallback(navigationCallback)
         carContext.getCarService(AppManager::class.java).setSurfaceCallback(surfaceCallback)
         CarNavigationState.setListener {
@@ -283,7 +284,7 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
                 outlinePaint.color = Color.rgb(35, 165, 245)
                 outlinePaint.strokeWidth = 12f
             }
-            streetMap.overlays.add(routeOverlay)
+            routeOverlay?.let { streetMap.overlays.add(it) }
         }
         routeOverlay?.setPoints(route?.geometry?.map {
             org.osmdroid.util.GeoPoint(it.latitude, it.longitude)
@@ -294,7 +295,7 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
                 title = route.destination.label
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             }
-            streetMap.overlays.add(destinationMarker)
+            destinationMarker?.let { streetMap.overlays.add(it) }
         }
         route?.let {
             destinationMarker?.position = org.osmdroid.util.GeoPoint(
@@ -307,7 +308,7 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
                 title = "Current location"
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
             }
-            streetMap.overlays.add(currentPositionMarker)
+            currentPositionMarker?.let { streetMap.overlays.add(it) }
         }
         if (location != null) {
             currentPositionMarker?.position =
