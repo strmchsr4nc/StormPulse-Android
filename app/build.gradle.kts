@@ -26,7 +26,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
-    kotlinOptions { jvmTarget = "17" }
+    kotlinOptions {
+        jvmTarget = "17"
+        allWarningsAsErrors = true
+    }
+    lint {
+        abortOnError = true
+        warningsAsErrors = true
+    }
 }
 
 dependencies {
