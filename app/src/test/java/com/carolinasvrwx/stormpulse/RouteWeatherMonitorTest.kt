@@ -41,7 +41,7 @@ class RouteWeatherMonitorTest {
             route = route,
             hazards = listOf(
                 hazard("watch", "Severe Thunderstorm Watch", -79.8, -79.6),
-                hazard("warning", "Tornado Warning", -79.4, -79.2)
+                hazard("warning", "Tornado Warning", -79.75, -79.65)
             ),
             currentLocation = route.first(),
             checkedAtEpochMillis = 20_000L,
