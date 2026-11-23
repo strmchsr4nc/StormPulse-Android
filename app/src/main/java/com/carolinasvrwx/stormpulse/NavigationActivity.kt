@@ -50,6 +50,7 @@ class NavigationActivity : Activity() {
     private var maneuverIndex = 0
     private var announcedManeuverIndex = -1
     private lateinit var turnSpeaker: RouteAlertSpeaker
+    private var weatherSession: RouteWeatherNavigationSession? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +65,7 @@ class NavigationActivity : Activity() {
                 latestFix = point
                 updateUserMarker(point)
                 updateTurnProgress(point)
+                weatherSession?.updateLocation(point)
                 if (routeSession.currentRoute() == null) map.controller.setCenter(point.toOsmPoint())
             }
             override fun onRoute(route: PlannedRoute, isReroute: Boolean) {
@@ -71,6 +73,24 @@ class NavigationActivity : Activity() {
                 searchButton.isEnabled = true
                 drawRoute(route)
                 activeRoute = route
+                weatherSession?.close()
+                weatherSession = RouteWeatherNavigationSession(
+                    this@NavigationActivity,
+                    route.geometry,
+                    onAssessment = { assessment ->
+                        val freshness = if (assessment.dataIsStale) "NWS data may be stale" else "NWS data current"
+                        val topAlert = assessment.alerts.firstOrNull()
+                        statusText.text = if (topAlert != null) {
+                            "$freshness · ${topAlert.hazard.event}: ${topAlert.status.name.lowercase().replace('_', ' ')}"
+                        } else {
+                            "$freshness · No active NWS alerts intersecting or near this route"
+                        }
+                    },
+                    onError = { error -> statusText.text = "NWS route check unavailable: ${error.message ?: "network error"}" }
+                ).also { session ->
+                    latestFix?.let(session::updateLocation)
+                    session.start()
+                }
                 maneuverIndex = 0
                 announcedManeuverIndex = -1
                 route.maneuvers.firstOrNull()?.let { turnSpeaker.speak(listOf("Route ready. ${it.instruction}.")) }
@@ -283,6 +303,8 @@ class NavigationActivity : Activity() {
     }
     override fun onDestroy() {
         if (::locationProvider.isInitialized) locationProvider.close()
+        weatherSession?.close()
+        weatherSession = null
         if (::turnSpeaker.isInitialized) turnSpeaker.close()
         if (::routeSession.isInitialized) routeSession.close()
         if (::navigationController.isInitialized) navigationController.close()
