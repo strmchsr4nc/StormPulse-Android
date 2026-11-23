@@ -101,7 +101,7 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
                 RoutingInfo.Builder()
                     .setCurrentStep(
                         Step.Builder("Start a route on your phone to begin guidance").build(),
-                        Distance.create(0f, Distance.UNIT_METERS)
+                        Distance.create(0.0, Distance.UNIT_METERS)
                     )
                     .build()
             )
