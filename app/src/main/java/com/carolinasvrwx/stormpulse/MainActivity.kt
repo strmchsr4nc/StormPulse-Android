@@ -3,6 +3,7 @@ package com.carolinasvrwx.stormpulse
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import androidx.activity.OnBackPressedCallback
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
@@ -76,6 +77,16 @@ class MainActivity : Activity() {
         setContentView(root)
 
         configureWebView()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (this@MainActivity::webView.isInitialized && webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
         publishNavigationShortcut()
 
         if (savedInstanceState == null) webView.loadUrl(HOME_URL) else webView.restoreState(savedInstanceState)
@@ -101,7 +112,6 @@ class MainActivity : Activity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            databaseEnabled = true
             loadsImagesAutomatically = true
             javaScriptCanOpenWindowsAutomatically = false
             setGeolocationEnabled(true)
@@ -201,11 +211,6 @@ class MainActivity : Activity() {
             Toast.makeText(this, "No app is available to open this link.", Toast.LENGTH_SHORT).show()
             true
         }
-    }
-
-    @Deprecated("Retained for compatibility with the current Android permission callback")
-    override fun onBackPressed() {
-        if (this::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 
     private fun hasLocationPermission(): Boolean =
