@@ -38,7 +38,7 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.activity:activity-ktx:1.10.1")
+    implementation("androidx.activity:activity-ktx:1.13.0")
     implementation("androidx.car.app:app:1.7.0")
     implementation("androidx.car.app:app-projected:1.7.0")
     implementation("org.osmdroid:osmdroid-android:6.1.20")
