@@ -63,6 +63,7 @@ class NavigationActivity : Activity() {
         routeSession = RouteSessionCoordinator(navigationController, object : RouteSessionCoordinator.Listener {
             override fun onLocation(point: GeoPoint, accuracyMeters: Float) {
                 latestFix = point
+                CarNavigationState.update(location = point)
                 updateUserMarker(point)
                 updateTurnProgress(point)
                 weatherSession?.updateLocation(point)
@@ -73,6 +74,15 @@ class NavigationActivity : Activity() {
                 searchButton.isEnabled = true
                 drawRoute(route)
                 activeRoute = route
+                CarNavigationState.update(
+                    route = route,
+                    location = latestFix,
+                    nextInstruction = route.maneuvers.firstOrNull()?.instruction ?: "Continue to destination",
+                    distanceToManeuverMeters = route.maneuvers.firstOrNull()?.let {
+                        distanceMeters(latestFix ?: it.point, it.point)
+                    } ?: 0.0,
+                    active = true
+                )
                 weatherSession?.close()
                 weatherSession = RouteWeatherNavigationSession(
                     this@NavigationActivity,
@@ -224,6 +234,13 @@ class NavigationActivity : Activity() {
             announcedManeuverIndex = -1
         }
         routeSummary.text = "Next: ${current.instruction} · ${formatDistance(distance)}"
+        CarNavigationState.update(
+            route = route,
+            location = location,
+            nextInstruction = current.instruction,
+            distanceToManeuverMeters = distance,
+            active = true
+        )
         if (distance <= 500.0 && announcedManeuverIndex != maneuverIndex) {
             turnSpeaker.speak(listOf("${formatDistance(distance)}. ${current.instruction}."))
             announcedManeuverIndex = maneuverIndex
@@ -232,6 +249,8 @@ class NavigationActivity : Activity() {
             statusText.text = "You have arrived at your destination."
             turnSpeaker.speak(listOf("You have arrived at your destination."))
             activeRoute = null
+            CarNavigationState.update(route = null, location = location, nextInstruction = null,
+                distanceToManeuverMeters = null, active = false)
         }
     }
 
