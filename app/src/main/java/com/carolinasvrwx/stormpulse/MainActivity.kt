@@ -3,6 +3,8 @@ package com.carolinasvrwx.stormpulse
 import android.Manifest
 import android.annotation.SuppressLint
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,8 +61,10 @@ class MainActivity : ComponentActivity() {
             pendingGeoOrigin = null
             if (!granted) Toast.makeText(this, "Location access wasn't granted. StormPulse location features may be limited.", Toast.LENGTH_LONG).show()
         }
-        window.statusBarColor = APP_BACKGROUND
-        window.navigationBarColor = APP_BACKGROUND
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(APP_BACKGROUND),
+            navigationBarStyle = SystemBarStyle.dark(APP_BACKGROUND)
+        )
 
         val root = FrameLayout(this).apply { setBackgroundColor(APP_BACKGROUND) }
         webView = WebView(this)
