@@ -7,21 +7,12 @@ android {
     namespace = "com.carolinasvrwx.stormpulse"
     compileSdk = 35
 
-    buildFeatures { buildConfig = true }
-
-    val mapboxToken = providers.environmentVariable("MAPBOX_ACCESS_TOKEN")
-        .orElse(providers.gradleProperty("MAPBOX_ACCESS_TOKEN"))
-        .getOrElse("")
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-
     defaultConfig {
         applicationId = "com.carolinasvrwx.stormpulse"
         minSdk = 24
         targetSdk = 35
         versionCode = 3
         versionName = "1.1.0"
-        buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxToken\"")
     }
 
     buildTypes {
