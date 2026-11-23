@@ -54,7 +54,7 @@ object RouteHazardMatcher {
                 hazard.expiresAtEpochMillis <= nowEpochMillis
             ) return@mapNotNull null
 
-            val encounter = route.indices.dropLast(1).firstNotNullOfOrNull { index ->
+            val encounter = (0 until route.lastIndex).firstNotNullOfOrNull { index ->
                 firstIntersectionFraction(route[index], route[index + 1], hazard.polygon)
                     ?.let { index to it }
             } ?: return@mapNotNull null
