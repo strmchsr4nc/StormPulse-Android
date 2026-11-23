@@ -1,45 +1,49 @@
 # StormPulse for Android
 
-A branded Android WebView wrapper for the live StormPulse Base44 application.
+StormPulse is a single Android application with two experiences:
 
-**Start URL:** https://carolinasevereweatherresearch.base44.app/
+- **Phone mode:** loads the existing StormPulse Base44 website in a hardened Android WebView.
+- **Android Auto mode:** a separate Android for Cars navigation service with a driver-oriented navigation template and host-provided map surface.
 
-## Current build scope
-- Loads the live StormPulse site in an Android WebView
-- JavaScript and DOM storage for the Base44 application
-- Android geolocation permission handoff, restricted to the StormPulse origin
-- Loading progress and tap-to-retry connection screen
-- Back-button navigation within the site
-- External HTTP(S), email, and telephone links handed to Android
-- HTTPS-only navigation, mixed content disabled, local file access disabled
-- SSL certificate errors fail closed; Android Safe Browsing hits return to safety
-- WebView lifecycle and state restoration
-- Recovery if Android terminates the WebView renderer
-- Safe Browsing threat handling
+**Phone start URL:** https://carolinasevereweatherresearch.base44.app/
 
-## Build an APK
-1. Install Android Studio (Giraffe or newer) and the Android SDK Platform 35.
-2. Open this `StormPulseAndroid` folder in Android Studio.
-3. Allow Gradle sync to finish.
-4. Select **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
-5. The debug APK will be at `app/build/outputs/apk/debug/app-debug.apk`.
+## Implemented Android features
 
-For a release APK, use **Build > Generate Signed Bundle / APK** and create a private signing key. Back up the key securely; it is required for future updates distributed outside Google Play.
+- WebView home, JavaScript/DOM storage, origin-restricted geolocation prompts, progress/retry UI, safe external links, SSL fail-closed behavior, Safe Browsing handling, and renderer recovery.
+- Separate native navigation activity with GPS permission handling, OpenStreetMap tiles, destination search, route geometry, route summary, turn progression, voice prompts, and optional external map-app chooser.
+- OSRM driving route calculation and Nominatim US address search, performed off the UI thread.
+- Android Auto CarAppService, NavigationTemplate, shared phone-to-car route/GPS state, destination/step estimates, and a host-owned map surface.
+- Android Auto map route/GPS rendering, Web Mercator coordinate projection, and pan/zoom gesture callbacks.
+- NWS active-alert retrieval, polygon/route intersection, route-ahead prioritization, alert freshness indicator, and deduplicated voice announcements.
+- Unit tests for routing models/controller, NWS parsing, hazard matching, alert policy, and route session behavior.
+
+## Known limitations — not yet production complete
+
+- The Android Auto surface currently draws route geometry and the GPS marker on a custom background; it does **not yet render real street-map tiles**.
+- Radar imagery, lightning overlays, and animated radar playback have not yet been integrated into the Android Auto map surface.
+- Weather-alert route assessment is advisory. Automatic hazard-avoiding alternate route generation is not implemented and no route is guaranteed safe.
+- OSRM and Nominatim public endpoints are community services without a production SLA. A production deployment should use appropriately hosted or contracted services and follow their usage policies.
+- The app has not yet completed physical-phone, Android Auto Desktop Head Unit, or in-vehicle validation.
+- A successful CI APK build is not the same as Google Play approval or a signed production release.
+
+## Build
+
+1. Install Android Studio and Android SDK Platform 35.
+2. Open the project in Android Studio and allow Gradle sync to finish.
+3. Build with **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
+4. The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
+
+The GitHub Actions workflow runs unit tests, Android lint, and debug/release assembly. The downloadable CI artifact is a debug APK for testing. A public release requires a securely backed-up signing key and Play Console setup.
 
 ## Package details
+
 - Application ID: `com.carolinasvrwx.stormpulse`
-- Version: `1.0.1` (versionCode 2)
+- Version: `1.1.0` (versionCode 3)
 - Minimum Android: 7.0 (API 24)
 - Compile/target SDK: 35
 - Java/Kotlin target: 17
+- Android Auto minimum Car App API: 2
 
-## Optional cloud build with GitHub Actions
+## Testing
 
-A workflow is included at `.github/workflows/android.yml`. After pushing this project to a GitHub repository, the workflow builds a debug APK on pushes to `main`/`master` or when started manually from the repository Actions tab. Download `StormPulse-debug-apk` from the completed workflow run under **Artifacts**. This is a debug build for testing, not a signed public release.
-
-## Important limitations and test plan
-This is a website wrapper: it does not bundle StormPulse or provide offline radar. Changes published to the Base44 website appear in the app automatically. Website push notifications are not automatically converted into Android push notifications by WebView.
-
-Before public distribution, test on physical Android devices: sign-in/session behavior, map gestures, geolocation prompts, external sign-in flows, orientation changes, network loss/recovery, and links. A production release should also be tested with the exact Base44 authentication and redirect behavior used by the live site.
-
-This source project has not yet been compiled into an APK in this environment because the Android SDK and Gradle build tool are not installed here.
+See [DEVICE_TEST_CHECKLIST.md](docs/DEVICE_TEST_CHECKLIST.md) for phone and Android Auto test steps. Complete the physical-device and car-host checks before calling navigation production-ready.
