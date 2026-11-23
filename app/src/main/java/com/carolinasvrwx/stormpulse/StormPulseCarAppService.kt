@@ -32,6 +32,8 @@ import androidx.car.app.navigation.model.Step
 import androidx.car.app.navigation.model.TravelEstimate
 import androidx.car.app.navigation.model.Trip
 import androidx.car.app.validation.HostValidator
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.util.TimeZone
 
 /** Separate Android Auto entry point; the phone WebView remains unchanged. */
@@ -86,7 +88,13 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
         override fun onStableAreaChanged(stableArea: android.graphics.Rect) = drawMapSurface()
     }
 
+    private val lifecycleObserver = LifecycleEventObserver { _, event ->
+        if (event == Lifecycle.Event.ON_DESTROY) cleanup()
+    }
+    private var cleanedUp = false
+
     init {
+        lifecycle.addObserver(lifecycleObserver)
         navigationManager.setNavigationManagerCallback(navigationCallback)
         carContext.getCarService(AppManager::class.java).setSurfaceCallback(surfaceCallback)
         CarNavigationState.setListener {
@@ -258,11 +266,20 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
         }
     }
 
-    override fun onDestroy() {
+    private fun cleanup() {
+        if (cleanedUp) return
+        cleanedUp = true
         CarNavigationState.setListener(null)
-        if (navigationStarted) navigationManager.navigationEnded()
+        CarNavigationState.setCarHostActive(false)
+        if (navigationStarted) {
+            try { navigationManager.navigationEnded() } catch (_: Exception) { }
+        }
         navigationStarted = false
         try { navigationManager.clearNavigationManagerCallback() } catch (_: Exception) { }
-        super.onDestroy()
+        try {
+            carContext.getCarService(AppManager::class.java).setSurfaceCallback(null)
+        } catch (_: Exception) { }
+        mapSurface = null
+        lifecycle.removeObserver(lifecycleObserver)
     }
 }
