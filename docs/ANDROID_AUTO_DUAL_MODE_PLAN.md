@@ -4,39 +4,31 @@
 
 StormPulse remains one Android application with two experiences:
 
-- **Phone mode (default):** retain the existing Base44 WebView and the complete current StormPulse phone interface.
-- **Android Auto mode (only while projected):** expose a separate, driver-safe navigation experience through the Android for Cars App Library. Do not replace, resize, or simplify the phone interface when Android Auto is disconnected.
+- **Phone mode (default):** preserve the existing Base44 WebView and hosted StormPulse phone interface.
+- **Android Auto mode (when projected):** expose a separate driver-oriented navigation experience through the Android for Cars App Library. Do not mirror the phone WebView or replace the phone home screen.
 
-## Mode selection
+## Implemented foundation
 
-Android Auto availability is determined by the car-host lifecycle, not by guessing from screen size or a Bluetooth connection.
+- Phone launcher continues to open MainActivity and load the hosted StormPulse website.
+- A dedicated CarAppService is registered for the NAVIGATION category with the required navigation-template and map-surface permissions.
+- NavigationActivity provides destination search, foreground GPS, OSRM route calculation, an osmdroid phone map, route progress, rerouting, and spoken turn prompts.
+- CarNavigationState shares route geometry, current position, and the current maneuver with the Android Auto service in-process.
+- StormPulseCarAppService publishes NavigationTemplate instructions and Trip estimates and draws route/GPS geometry onto the host-provided surface.
+- Android Auto map pan/zoom callbacks and the map pan action are enabled for minimum Car App API level 2.
+- NWS active-alert polygons are matched against the route and announced with deduplication and stale-data suppression.
 
-- The phone launcher continues to open `.MainActivity` and load the existing StormPulse website.
-- A dedicated `CarAppService` is registered for the navigation category and is launched by the Android Auto host when the app is connected and approved.
-- The car experience uses approved car templates and host-driven navigation surfaces. It must not mirror the phone WebView or present phone-sized touch controls.
-- Disconnecting Android Auto ends the car-host session. The phone activity and its existing experience remain available.
-- Shared route and alert state should live in a repository/service layer so both experiences can observe the same trip without sharing UI code.
+## Known gaps and release gates
 
-## Navigation and weather safety
+1. Android Auto map surface still uses a custom background; integrate real street-map tiles and attribution before calling it a full map.
+2. Integrate live radar, lightning, and severe-weather overlays where allowed by Android Auto driver-distraction rules.
+3. Implement advisory alternate-route evaluation for weather hazards; never guarantee a route is safe.
+4. Implement and verify navigation audio focus and Android Auto lifecycle/stop behavior.
+5. Run unit tests, Android lint, debug/release assembly in CI.
+6. Test on physical Android phones and Android Auto Desktop Head Unit, then a real vehicle. Verify connect/disconnect, GPS/network loss, permissions, map gestures, rerouting, stale alerts, and spoken guidance.
+7. Prepare a signed release, Play Console declarations, and Android for Cars app-quality review only after the preceding gates pass.
 
-- Route planning accepts U.S. destination addresses within StormPulse.
-- Route geometry and maneuver steps come from a documented routing provider.
-- Current NWS watches and warnings are refreshed from official NWS alert data.
-- Alert-to-route matching must use the alert geometry and route geometry, not just nearby point samples.
-- Announcements distinguish watches from warnings and report stale/unavailable data honestly.
-- A suggested alternate route is advisory only; never describe it as safe or guaranteed to avoid hazards.
-- Avoid repeated voice alerts with event-based deduplication and configurable approach thresholds.
+## Safety and service constraints
 
-## Implementation sequence
-
-1. Keep the current phone WebView behavior unchanged; add architecture and tests first.
-2. Add the Car App Library service and verify the app is visible to the Android Auto host in a supported navigation category.
-3. Implement a minimal host-compliant navigation template before adding map rendering.
-4. Add route planning, location updates, maneuver progression, and text-to-speech.
-5. Add NWS alert geometry intersection, alert prioritization, and voice announcements.
-6. Add radar/map presentation only through supported car-screen APIs and driver-distraction constraints.
-7. Test phone-only, connected, disconnect/reconnect, permissions, GPS loss, network loss, stale alerts, and real hardware.
-
-## Current repository facts
-
-The existing app is a WebView wrapper around `https://carolinasevereweatherresearch.base44.app/`. Its manifest currently declares only the phone launcher activity. The current source does not yet contain a Car App Library service, route engine, in-app routing screen, or NWS route-alert engine. This document is a plan, not a claim that those features are implemented.
+- NWS watches and warnings are advisory information; users must follow official instructions and road conditions.
+- OSRM and Nominatim public endpoints are best-effort community services without a production SLA. Observe Nominatim's usage policy and provide a production-suitable routing/geocoding backend before broad distribution.
+- GPS ownership and route calculation currently remain in the foreground NavigationActivity. Do not claim background tracking when the activity is stopped.
