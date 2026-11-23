@@ -30,6 +30,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.activity:activity-ktx:1.10.1")
     // Android Auto projected-display support; phone UI remains the existing WebView.
     implementation("androidx.car.app:app:1.7.0")
     implementation("androidx.car.app:app-projected:1.7.0")
