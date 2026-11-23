@@ -18,9 +18,11 @@ import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarColor
 import androidx.car.app.model.CarText
-import androidx.car.app.model.MessageInfo
 import androidx.car.app.model.Template
 import androidx.car.app.navigation.model.NavigationTemplate
+import androidx.car.app.navigation.model.RoutingInfo
+import androidx.car.app.navigation.model.Step
+import androidx.car.app.model.Distance
 import androidx.car.app.validation.HostValidator
 
 /**
@@ -96,7 +98,11 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
             .setBackgroundColor(CarColor.SECONDARY)
             .setActionStrip(actions)
             .setNavigationInfo(
-                MessageInfo.Builder(CarText.create("StormPulse navigation is ready. Start a route on your phone to prepare guidance."))
+                RoutingInfo.Builder()
+                    .setCurrentStep(
+                        Step.Builder("Start a route on your phone to begin guidance").build(),
+                        Distance.create(0f, Distance.UNIT_METERS)
+                    )
                     .build()
             )
             .build()
