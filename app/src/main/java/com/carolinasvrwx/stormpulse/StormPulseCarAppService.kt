@@ -20,6 +20,7 @@ import androidx.car.app.SurfaceContainer
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarColor
+import androidx.car.app.model.CarIcon
 import androidx.car.app.model.DateTimeWithZone
 import androidx.car.app.model.Distance
 import androidx.car.app.model.Template
@@ -27,6 +28,7 @@ import androidx.car.app.navigation.NavigationManager
 import androidx.car.app.navigation.NavigationManagerCallback
 import androidx.car.app.navigation.model.Destination
 import androidx.car.app.navigation.model.NavigationTemplate
+import androidx.car.app.navigation.model.PanModeListener
 import androidx.car.app.navigation.model.RoutingInfo
 import androidx.car.app.navigation.model.Step
 import androidx.car.app.navigation.model.TravelEstimate
@@ -34,6 +36,7 @@ import androidx.car.app.navigation.model.Trip
 import androidx.car.app.validation.HostValidator
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.core.graphics.drawable.IconCompat
 import java.util.TimeZone
 
 /** Separate Android Auto entry point; the phone WebView remains unchanged. */
@@ -141,9 +144,24 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
         val instruction = if (state.active) state.nextInstruction ?: "Continue on the current route"
             else "Choose a destination in StormPulse on your phone"
         val distance = state.distanceToManeuverMeters?.coerceAtLeast(0.0) ?: 0.0
+        val panIcon = CarIcon.Builder(
+            IconCompat.createWithResource(carContext, R.drawable.ic_pan)
+        ).build()
         return NavigationTemplate.Builder()
             .setBackgroundColor(CarColor.SECONDARY)
             .setActionStrip(ActionStrip.Builder().addAction(Action.APP_ICON).build())
+            .setMapActionStrip(
+                ActionStrip.Builder()
+                    .addAction(Action.Builder(Action.PAN).setIcon(panIcon).build())
+                    .build()
+            )
+            .setPanModeListener(PanModeListener { isInPanMode ->
+                if (!isInPanMode) {
+                    mapPanX = 0f
+                    mapPanY = 0f
+                    drawMapSurface()
+                }
+            })
             .setNavigationInfo(
                 RoutingInfo.Builder()
                     .setCurrentStep(
