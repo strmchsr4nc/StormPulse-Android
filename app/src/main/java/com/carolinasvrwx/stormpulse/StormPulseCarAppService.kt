@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Typeface
 import android.view.Surface
 import androidx.car.app.AppManager
@@ -87,6 +88,10 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
     init {
         carContext.getCarService(AppManager::class.java)
             .setSurfaceCallback(surfaceCallback)
+        CarNavigationState.setListener {
+            invalidate()
+            drawMapSurface()
+        }
     }
 
     override fun onGetTemplate(): Template {
@@ -94,15 +99,17 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
             .addAction(Action.APP_ICON)
             .build()
 
+        val state = CarNavigationState.current()
+        val instruction = if (state.active) state.nextInstruction ?: "Continue on the current route"
+            else "Choose a destination in StormPulse on your phone"
+        val distance = state.distanceToManeuverMeters?.coerceAtLeast(0.0) ?: 0.0
         return NavigationTemplate.Builder()
             .setBackgroundColor(CarColor.SECONDARY)
             .setActionStrip(actions)
             .setNavigationInfo(
                 RoutingInfo.Builder()
-                    .setCurrentStep(
-                        Step.Builder("Start a route on your phone to begin guidance").build(),
-                        Distance.create(0.0, Distance.UNIT_METERS)
-                    )
+                    .setCurrentStep(Step.Builder(instruction).build(),
+                        Distance.create(distance, Distance.UNIT_METERS))
                     .build()
             )
             .build()
@@ -111,57 +118,74 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
     private fun drawMapSurface() {
         val surface = mapSurface ?: return
         if (!surface.isValid) return
-
         var canvas: Canvas? = null
         try {
             canvas = surface.lockCanvas(null)
-            canvas.drawColor(Color.rgb(12, 24, 35))
-
+            val target = canvas
+            target.drawColor(Color.rgb(12, 24, 35))
+            val state = CarNavigationState.current()
+            val route = state.route
             val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.rgb(35, 58, 68)
-                strokeWidth = 2f
+                strokeWidth = 1.5f
                 style = Paint.Style.STROKE
             }
-            val spacing = 72f
             var x = 0f
-            while (x < canvas.width) {
-                canvas.drawLine(x, 0f, x, canvas.height.toFloat(), gridPaint)
-                x += spacing
-            }
+            while (x < target.width) { target.drawLine(x, 0f, x, target.height.toFloat(), gridPaint); x += 80f }
             var y = 0f
-            while (y < canvas.height) {
-                canvas.drawLine(0f, y, canvas.width.toFloat(), y, gridPaint)
-                y += spacing
-            }
+            while (y < target.height) { target.drawLine(0f, y, target.width.toFloat(), y, gridPaint); y += 80f }
 
-            val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
-                textSize = 34f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            if (route != null && route.geometry.size >= 2) {
+                val points = route.geometry
+                val minLat = points.minOf { it.latitude }
+                val maxLat = points.maxOf { it.latitude }
+                val minLon = points.minOf { it.longitude }
+                val maxLon = points.maxOf { it.longitude }
+                val latSpan = (maxLat - minLat).coerceAtLeast(0.0001)
+                val lonSpan = (maxLon - minLon).coerceAtLeast(0.0001)
+                val pad = 54f
+                val usableW = (target.width - pad * 2).coerceAtLeast(1f)
+                val usableH = (target.height - pad * 2).coerceAtLeast(1f)
+                fun px(lon: Double) = pad + ((lon - minLon) / lonSpan * usableW).toFloat()
+                fun py(lat: Double) = target.height - pad - ((lat - minLat) / latSpan * usableH).toFloat()
+                val path = Path()
+                points.forEachIndexed { index, point ->
+                    if (index == 0) path.moveTo(px(point.longitude), py(point.latitude))
+                    else path.lineTo(px(point.longitude), py(point.latitude))
+                }
+                target.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.rgb(15, 80, 130); strokeWidth = 18f
+                    style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+                })
+                target.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.rgb(55, 190, 255); strokeWidth = 9f
+                    style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+                })
+                val destination = route.destination.point
+                target.drawCircle(px(destination.longitude), py(destination.latitude), 11f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 190, 65) })
+                state.location?.let { location ->
+                    target.drawCircle(px(location.longitude), py(location.latitude), 17f,
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
+                    target.drawCircle(px(location.longitude), py(location.latitude), 11f,
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(30, 160, 255) })
+                }
+            } else {
+                target.drawText("STORMPULSE", 32f, 54f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE; textSize = 34f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                })
+                target.drawText("Navigation display connected", 32f, 88f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(105, 210, 255); textSize = 22f })
+                target.drawText("Select a destination on your phone to begin", 32f,
+                    target.height - 36f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = Color.rgb(180, 205, 220); textSize = 18f
+                    })
             }
-            val detailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.rgb(105, 210, 255)
-                textSize = 22f
-            }
-            val centerX = canvas.width / 2f
-            val centerY = canvas.height / 2f
-            canvas.drawCircle(centerX, centerY, 13f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.rgb(105, 210, 255)
-                style = Paint.Style.FILL
-            })
-            canvas.drawText("STORMPULSE", 32f, 54f, titlePaint)
-            canvas.drawText("Navigation display connected", 32f, 88f, detailPaint)
-            canvas.drawText("Select a destination on your phone to begin", 32f, canvas.height - 36f, detailPaint)
         } catch (_: Exception) {
             // The host may replace its surface while a frame is being drawn.
         } finally {
-            if (canvas != null) {
-                try {
-                    surface.unlockCanvasAndPost(canvas)
-                } catch (_: Exception) {
-                    // Surface was destroyed by the host during rendering.
-                }
-            }
+            if (canvas != null) try { surface.unlockCanvasAndPost(canvas) } catch (_: Exception) { }
         }
     }
 }
