@@ -1,6 +1,7 @@
 package com.carolinasvrwx.stormpulse
 
 import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -42,5 +43,10 @@ class RouteWeatherCoordinator(
                 onError(exception)
             }
         }
+    }
+    
+    /** Stops the default background executor when this coordinator is no longer used. */
+    fun close() {
+        (backgroundExecutor as? ExecutorService)?.shutdownNow()
     }
 }
