@@ -2,7 +2,7 @@ package com.carolinasvrwx.stormpulse
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
+import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
@@ -30,7 +30,7 @@ import android.webkit.SslErrorHandler
 import android.webkit.RenderProcessGoneDetail
 import android.net.http.SslError
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var progress: ProgressBar
     private lateinit var errorView: TextView
