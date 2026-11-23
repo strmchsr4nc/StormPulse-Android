@@ -34,6 +34,10 @@ data class RouteHazardMatch(
 )
 
 object RouteHazardMatcher {
+    /** True when a geographic point is inside or on the boundary of a hazard polygon. */
+    fun contains(point: GeoPoint, polygon: List<GeoPoint>): Boolean =
+        polygon.size >= 3 && pointInPolygon(point, polygon)
+
     /** Returns intersecting hazards in the order a driver first encounters them. */
     fun match(
         route: List<GeoPoint>,
