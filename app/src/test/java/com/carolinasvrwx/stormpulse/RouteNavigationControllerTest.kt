@@ -70,7 +70,10 @@ class RouteNavigationControllerTest {
     fun closedControllerDoesNotDeliverResults() {
         val controller = RouteNavigationController(
             DestinationSearchProvider { emptyList() },
-            RoutePlanningProvider { _, _ -> throw AssertionError("Must not route") },
+            object : RoutePlanningProvider {
+                override fun calculateRoute(origin: GeoPoint, destination: RouteDestination): PlannedRoute =
+                    throw AssertionError("Must not route")
+            },
             worker = direct,
             callbackExecutor = direct,
             ownsWorker = false
