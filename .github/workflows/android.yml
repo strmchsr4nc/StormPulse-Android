@@ -38,7 +38,7 @@ jobs:
         run: gradle :app:lintDebug --stacktrace
 
       - name: Build debug and release variants
-        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace --info
+        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
 
       - name: Upload StormPulse APK
         uses: actions/upload-artifact@v6
