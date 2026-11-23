@@ -59,7 +59,14 @@ class RouteAlertAnnouncementPolicyTest {
             )
         )
         assertEquals(listOf("warning message", "watch message"), messages)
-        assertTrue(policy.messagesFor(assessment(alert("warning"), alert("watch"))).isEmpty())
+        assertTrue(
+            policy.messagesFor(
+                assessment(
+                    alert("warning", NwsAlertKind.WARNING),
+                    alert("watch", NwsAlertKind.WATCH)
+                )
+            ).isEmpty()
+        )
     }
 
     @Test
