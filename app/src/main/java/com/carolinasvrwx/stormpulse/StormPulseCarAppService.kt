@@ -226,22 +226,32 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
             if (route != null && route.geometry.size >= 2) {
                 val points = route.geometry
                 val visiblePoints = if (state.location != null) points + state.location else points
-                val minLat = visiblePoints.minOf { it.latitude }
-                val maxLat = visiblePoints.maxOf { it.latitude }
-                val minLon = visiblePoints.minOf { it.longitude }
-                val maxLon = visiblePoints.maxOf { it.longitude }
-                val latSpan = (maxLat - minLat).coerceAtLeast(0.001)
-                val lonSpan = (maxLon - minLon).coerceAtLeast(0.001)
+                // Project geographic coordinates into Web Mercator so route
+                // geometry keeps a consistent map-like shape at different latitudes.
+                fun mercatorY(latitude: Double): Double {
+                    val clamped = latitude.coerceIn(-85.05112878, 85.05112878)
+                    val radians = Math.toRadians(clamped)
+                    return kotlin.math.ln(kotlin.math.tan(Math.PI / 4.0 + radians / 2.0))
+                }
+                val projected = visiblePoints.map { it.longitude to mercatorY(it.latitude) }
+                val minX = projected.minOf { it.first }
+                val maxX = projected.maxOf { it.first }
+                val minY = projected.minOf { it.second }
+                val maxY = projected.maxOf { it.second }
+                val xSpan = (maxX - minX).coerceAtLeast(0.000001)
+                val ySpan = (maxY - minY).coerceAtLeast(0.000001)
                 val pad = 54f
                 val usableW = (target.width - pad * 2).coerceAtLeast(1f)
                 val usableH = (target.height - pad * 2).coerceAtLeast(1f)
-                val scale = minOf(usableH / latSpan, usableW / lonSpan)
-                val centerLat = (minLat + maxLat) / 2.0
-                val centerLon = (minLon + maxLon) / 2.0
+                val scale = minOf(usableW / xSpan, usableH / ySpan)
+                val centerX = (minX + maxX) / 2.0
+                val centerY = (minY + maxY) / 2.0
+                val saveCount = target.save()
+                target.clipRect(0f, 0f, target.width.toFloat(), target.height.toFloat())
                 fun px(lon: Double) = target.width / 2f + mapPanX +
-                    (((lon - centerLon) * scale).toFloat() * mapZoom)
+                    (((lon - centerX) * scale).toFloat() * mapZoom)
                 fun py(lat: Double) = target.height / 2f + mapPanY -
-                    (((lat - centerLat) * scale).toFloat() * mapZoom)
+                    (((mercatorY(lat) - centerY) * scale).toFloat() * mapZoom)
                 val path = Path()
                 points.forEachIndexed { index, point ->
                     if (index == 0) path.moveTo(px(point.longitude), py(point.latitude))
@@ -270,6 +280,7 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
                     target.drawCircle(px(location.longitude), py(location.latitude), 11f,
                         Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(30, 160, 255) })
                 }
+                target.restoreToCount(saveCount)
             } else {
                 target.drawText("STORMPULSE", 32f, 54f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = Color.WHITE
