@@ -1,6 +1,7 @@
 package com.carolinasvrwx.stormpulse
 
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import androidx.car.app.CarAppService
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
@@ -20,8 +21,17 @@ import androidx.car.app.validation.HostValidator
  * route calculation, maneuver guidance, and NWS route alerts are not yet wired.
  */
 class StormPulseCarAppService : CarAppService() {
-    override fun createHostValidator(): HostValidator =
-        HostValidator.ALLOW_ALL_HOSTS_VALIDATOR
+    override fun createHostValidator(): HostValidator {
+        // Allow unknown hosts only in debug builds. Release builds accept
+        // Android for Cars' maintained sample allow-list plus privileged hosts.
+        return if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            HostValidator.ALLOW_ALL_HOSTS_VALIDATOR
+        } else {
+            HostValidator.Builder(this)
+                .addAllowedHosts(androidx.car.app.R.array.hosts_allowlist_sample)
+                .build()
+        }
+    }
 
     override fun onCreateSession(): Session = StormPulseCarSession()
 }
