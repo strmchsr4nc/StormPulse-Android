@@ -51,9 +51,17 @@ class RouteWeatherMonitor(
             val distanceFromStart = distanceAlongRoute(
                 route, match.firstIntersectingSegment, match.firstEncounterFraction
             )
-            val distanceAhead = (distanceFromStart - progress).coerceAtLeast(0.0)
+            val userInsideHazard = RouteHazardMatcher.contains(currentLocation, hazard.polygon)
+            val rawDistanceAhead = distanceFromStart - progress
+
+            // Do not keep announcing a polygon that the driver has already passed.
+            // If the current fix is still inside the polygon, retain the on-route alert
+            // even when the polygon's first route intersection is behind the vehicle.
+            if (!userInsideHazard && rawDistanceAhead < -100.0) return@mapNotNull null
+
+            val distanceAhead = if (userInsideHazard) 0.0 else rawDistanceAhead.coerceAtLeast(0.0)
             val status = when {
-                distanceAhead <= 100.0 -> RouteAlertStatus.ON_ROUTE
+                userInsideHazard || distanceAhead <= 100.0 -> RouteAlertStatus.ON_ROUTE
                 distanceAhead <= nearbyDistanceMeters -> RouteAlertStatus.AHEAD
                 else -> return@mapNotNull null
             }
