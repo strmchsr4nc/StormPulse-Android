@@ -30,6 +30,8 @@ android {
 }
 
 dependencies {
+    // Declare the Kotlin runtime explicitly for Android D8/desugaring and transitive Kotlin libraries.
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
     implementation("androidx.activity:activity-ktx:1.10.1")
     // Android Auto projected-display support; phone UI remains the existing WebView.
     implementation("androidx.car.app:app:1.7.0")
