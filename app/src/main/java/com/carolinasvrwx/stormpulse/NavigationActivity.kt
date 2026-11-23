@@ -2,6 +2,8 @@ package com.carolinasvrwx.stormpulse
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
@@ -34,6 +36,7 @@ class NavigationActivity : Activity() {
     private lateinit var routeSummary: TextView
     private lateinit var progress: ProgressBar
     private lateinit var searchButton: Button
+    private lateinit var externalMapButton: Button
     private lateinit var locationProvider: AndroidGpsLocationProvider
     private lateinit var navigationController: RouteNavigationController
     private lateinit var routeSession: RouteSessionCoordinator
@@ -41,6 +44,8 @@ class NavigationActivity : Activity() {
     private var userMarker: Marker? = null
     private var destinationMarker: Marker? = null
     private var latestFix: GeoPoint? = null
+    private var selectedDestination: GeoPoint? = null
+    private var selectedDestinationLabel: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +64,7 @@ class NavigationActivity : Activity() {
                 progress.visibility = View.GONE
                 searchButton.isEnabled = true
                 drawRoute(route)
+                externalMapButton.visibility = if (selectedDestination != null) View.VISIBLE else View.GONE
                 routeSummary.text = formatDistance(route.distanceMeters) + " · about " + formatDuration(route.durationSeconds)
                 val turn = route.maneuvers.firstOrNull()?.instruction
                 statusText.text = if (isReroute) "Route updated" else "Route ready"
@@ -97,6 +103,11 @@ class NavigationActivity : Activity() {
             setPadding(dp(12), 0, dp(12), 0); setBackgroundColor(Color.rgb(35, 45, 60))
         }
         searchButton = Button(this).apply { text = "Find route"; setOnClickListener { searchDestination() } }
+        externalMapButton = Button(this).apply {
+            text = "Open directions in another map app"
+            visibility = View.GONE
+            setOnClickListener { openInMapChooser() }
+        }
         progress = ProgressBar(this).apply { visibility = View.GONE }
         statusText = TextView(this).apply {
             text = "Waiting for GPS location…"; textSize = 14f; setTextColor(Color.rgb(170, 205, 235))
@@ -110,6 +121,7 @@ class NavigationActivity : Activity() {
         root.addView(title, matchWrap())
         root.addView(destinationInput, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(8) })
         root.addView(searchButton, matchWrap())
+        root.addView(externalMapButton, matchWrap())
         root.addView(progress, matchWrap())
         root.addView(statusText, matchWrap())
         root.addView(routeSummary, matchWrap())
@@ -132,6 +144,9 @@ class NavigationActivity : Activity() {
             val match = matches.first()
             destinationInput.setText(match.formattedAddress)
             val target = RouteDestination(match.formattedAddress, match.point)
+            selectedDestination = match.point
+            selectedDestinationLabel = match.formattedAddress
+            externalMapButton.visibility = View.GONE
             destinationMarker?.let { map.overlays.remove(it) }
             val marker = Marker(map).apply {
                 position = match.point.toOsmPoint(); title = match.formattedAddress
@@ -145,6 +160,23 @@ class NavigationActivity : Activity() {
             progress.visibility = View.GONE; searchButton.isEnabled = true
             statusText.text = error.message ?: "Address search failed."
         })
+    }
+
+
+    /** Offers installed navigation apps without forcing a handoff. */
+    private fun openInMapChooser() {
+        val destination = selectedDestination ?: run {
+            statusText.text = "Find a route before opening another map app."
+            return
+        }
+        val label = Uri.encode(selectedDestinationLabel)
+        val geoUri = Uri.parse("geo:${destination.latitude},${destination.longitude}?q=${destination.latitude},${destination.longitude}($label)")
+        val intent = Intent(Intent.ACTION_VIEW, geoUri)
+        try {
+            startActivity(Intent.createChooser(intent, "Choose a map or navigation app"))
+        } catch (_: Exception) {
+            statusText.text = "No compatible map app is installed. Continue with StormPulse navigation."
+        }
     }
 
     private fun drawRoute(route: PlannedRoute) {
