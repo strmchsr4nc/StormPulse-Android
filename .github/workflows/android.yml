@@ -31,13 +31,13 @@ jobs:
           gradle-version: '9.9.2'
 
       - name: Run unit tests
-        run: gradle :app:testDebugUnitTest --stacktrace
+        run: gradle :app:testDebugUnitTest --stacktrace --warning-mode all
 
       - name: Run Android lint checks
-        run: gradle :app:lintDebug --stacktrace
+        run: gradle :app:lintDebug --stacktrace --warning-mode all
 
       - name: Build debug and release variants
-        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
+        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace --warning-mode all
 
       - name: Upload StormPulse APK
         uses: actions/upload-artifact@v6
