@@ -46,11 +46,16 @@ class NavigationActivity : Activity() {
     private var latestFix: GeoPoint? = null
     private var selectedDestination: GeoPoint? = null
     private var selectedDestinationLabel: String = ""
+    private var activeRoute: PlannedRoute? = null
+    private var maneuverIndex = 0
+    private var announcedManeuverIndex = -1
+    private lateinit var turnSpeaker: RouteAlertSpeaker
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Configuration.getInstance().userAgentValue = packageName
         buildLayout()
+        turnSpeaker = RouteAlertSpeaker(this)
         navigationController = RoutingServices.navigationController(
             java.util.concurrent.Executor { command -> mainHandler.post(command) }
         )
@@ -58,12 +63,17 @@ class NavigationActivity : Activity() {
             override fun onLocation(point: GeoPoint, accuracyMeters: Float) {
                 latestFix = point
                 updateUserMarker(point)
+                updateTurnProgress(point)
                 if (routeSession.currentRoute() == null) map.controller.setCenter(point.toOsmPoint())
             }
             override fun onRoute(route: PlannedRoute, isReroute: Boolean) {
                 progress.visibility = View.GONE
                 searchButton.isEnabled = true
                 drawRoute(route)
+                activeRoute = route
+                maneuverIndex = 0
+                announcedManeuverIndex = -1
+                route.maneuvers.firstOrNull()?.let { turnSpeaker.speak(listOf("Route ready. ${it.instruction}.")) }
                 externalMapButton.visibility = if (selectedDestination != null) View.VISIBLE else View.GONE
                 routeSummary.text = formatDistance(route.distanceMeters) + " · about " + formatDuration(route.durationSeconds)
                 val turn = route.maneuvers.firstOrNull()?.instruction
@@ -179,6 +189,44 @@ class NavigationActivity : Activity() {
         }
     }
 
+
+    /** Advances turn guidance from live GPS proximity and announces each upcoming turn once. */
+    private fun updateTurnProgress(location: GeoPoint) {
+        val route = activeRoute ?: return
+        if (route.maneuvers.isEmpty() || maneuverIndex >= route.maneuvers.size) return
+        var current = route.maneuvers[maneuverIndex]
+        var distance = distanceMeters(location, current.point)
+        // Advance only after reaching the maneuver point; a generous radius handles GPS drift.
+        while (distance <= 35.0 && maneuverIndex < route.maneuvers.lastIndex) {
+            maneuverIndex += 1
+            current = route.maneuvers[maneuverIndex]
+            distance = distanceMeters(location, current.point)
+            announcedManeuverIndex = -1
+        }
+        routeSummary.text = "Next: ${current.instruction} · ${formatDistance(distance)}"
+        if (distance <= 500.0 && announcedManeuverIndex != maneuverIndex) {
+            turnSpeaker.speak(listOf("${formatDistance(distance)}. ${current.instruction}."))
+            announcedManeuverIndex = maneuverIndex
+        }
+        if (distance <= 35.0 && maneuverIndex == route.maneuvers.lastIndex) {
+            statusText.text = "You have arrived at your destination."
+            turnSpeaker.speak(listOf("You have arrived at your destination."))
+            activeRoute = null
+        }
+    }
+
+    private fun distanceMeters(a: GeoPoint, b: GeoPoint): Double {
+        val earthRadius = 6_371_000.0
+        val lat1 = Math.toRadians(a.latitude)
+        val lat2 = Math.toRadians(b.latitude)
+        val dLat = lat2 - lat1
+        val dLon = Math.toRadians(b.longitude - a.longitude)
+        val h = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
+            kotlin.math.cos(lat1) * kotlin.math.cos(lat2) *
+            kotlin.math.sin(dLon / 2) * kotlin.math.sin(dLon / 2)
+        return 2.0 * earthRadius * kotlin.math.asin(kotlin.math.sqrt(h.coerceIn(0.0, 1.0)))
+    }
+
     private fun drawRoute(route: PlannedRoute) {
         routeLine?.let { map.overlays.remove(it) }
         val line = Polyline().apply {
@@ -235,6 +283,7 @@ class NavigationActivity : Activity() {
     }
     override fun onDestroy() {
         if (::locationProvider.isInitialized) locationProvider.close()
+        if (::turnSpeaker.isInitialized) turnSpeaker.close()
         if (::routeSession.isInitialized) routeSession.close()
         if (::navigationController.isInitialized) navigationController.close()
         if (::map.isInitialized) map.onDetach()
