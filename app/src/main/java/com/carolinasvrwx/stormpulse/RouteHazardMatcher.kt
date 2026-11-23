@@ -32,7 +32,9 @@ data class WeatherHazard(
 data class RouteHazardMatch(
     val hazard: WeatherHazard,
     /** Index of the first route segment intersecting the polygon. */
-    val firstIntersectingSegment: Int
+    val firstIntersectingSegment: Int,
+    /** Fraction from 0.0 to 1.0 along that segment at first contact. */
+    val firstEncounterFraction: Double
 )
 
 object RouteHazardMatcher {
@@ -52,25 +54,54 @@ object RouteHazardMatcher {
                 hazard.expiresAtEpochMillis <= nowEpochMillis
             ) return@mapNotNull null
 
-            val segmentIndex = (0 until route.lastIndex).firstOrNull { index ->
-                segmentIntersectsPolygon(route[index], route[index + 1], hazard.polygon)
+            val encounter = (0 until route.lastIndex).firstNotNullOfOrNull { index ->
+                firstIntersectionFraction(route[index], route[index + 1], hazard.polygon)
+                    ?.let { fraction -> index to fraction }
             } ?: return@mapNotNull null
-            RouteHazardMatch(hazard, segmentIndex)
-        }.sortedBy { it.firstIntersectingSegment }
+            RouteHazardMatch(hazard, encounter.first, encounter.second)
+        }.sortedWith(
+            compareBy<RouteHazardMatch> { it.firstIntersectingSegment }
+                .thenBy { it.firstEncounterFraction }
+        )
     }
 
-    private fun segmentIntersectsPolygon(
+    private fun firstIntersectionFraction(
         start: GeoPoint,
         end: GeoPoint,
         polygon: List<GeoPoint>
-    ): Boolean {
-        if (pointInPolygon(start, polygon) || pointInPolygon(end, polygon)) return true
-        return polygon.indices.any { index ->
-            segmentsIntersect(
-                start, end,
-                polygon[index], polygon[(index + 1) % polygon.size]
-            )
+    ): Double? {
+        if (pointInPolygon(start, polygon)) return 0.0
+        val dx = end.longitude - start.longitude
+        val dy = end.latitude - start.latitude
+        var earliest: Double? = null
+        polygon.indices.forEach { index ->
+            val a = polygon[index]
+            val b = polygon[(index + 1) % polygon.size]
+            val ex = b.longitude - a.longitude
+            val ey = b.latitude - a.latitude
+            val denominator = dx * ey - dy * ex
+            if (kotlin.math.abs(denominator) > 1e-12) {
+                val ax = a.longitude - start.longitude
+                val ay = a.latitude - start.latitude
+                val t = (ax * ey - ay * ex) / denominator
+                val u = (ax * dy - ay * dx) / denominator
+                if (t in 0.0..1.0 && u in 0.0..1.0) {
+                    earliest = minOf(earliest ?: t, t)
+                }
+            } else if (orientation(start, end, a) == 0) {
+                // Collinear overlap: project polygon edge endpoints onto the route.
+                val lengthSquared = dx * dx + dy * dy
+                if (lengthSquared > 0.0) {
+                    listOf(a, b).forEach { point ->
+                        val t = ((point.longitude - start.longitude) * dx +
+                            (point.latitude - start.latitude) * dy) / lengthSquared
+                        if (t in 0.0..1.0) earliest = minOf(earliest ?: t, t)
+                    }
+                }
+            }
         }
+        if (earliest != null) return earliest
+        return if (pointInPolygon(end, polygon)) 1.0 else null
     }
 
     private fun pointInPolygon(point: GeoPoint, polygon: List<GeoPoint>): Boolean {
