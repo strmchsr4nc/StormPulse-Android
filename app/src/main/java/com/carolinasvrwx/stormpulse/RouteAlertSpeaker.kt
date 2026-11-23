@@ -25,9 +25,14 @@ class RouteAlertSpeaker(
     override fun onInit(status: Int) {
         if (closed) return
         val tts = engine ?: return
-        ready = status == TextToSpeech.SUCCESS &&
-            tts.setLanguage(Locale.US) != TextToSpeech.LANG_MISSING_DATA &&
-            tts.setLanguage(Locale.US) != TextToSpeech.LANG_NOT_SUPPORTED
+        val languageResult = if (status == TextToSpeech.SUCCESS) {
+            tts.setLanguage(Locale.US)
+        } else {
+            TextToSpeech.ERROR
+        }
+        ready = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+            languageResult != TextToSpeech.LANG_NOT_SUPPORTED &&
+            languageResult != TextToSpeech.ERROR
         onReady?.invoke(ready)
         if (ready) {
             pendingMessages.toList().forEachIndexed { index, message ->
