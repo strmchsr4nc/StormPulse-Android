@@ -16,7 +16,6 @@ import org.osmdroid.views.overlay.Polyline
 import android.os.Handler
 import android.os.Looper
 import android.view.Surface
-import android.view.View.MeasureSpec as ViewMeasureSpec
 import androidx.car.app.AppManager
 import androidx.car.app.CarAppService
 import androidx.car.app.CarContext
@@ -240,8 +239,12 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
             val state = CarNavigationState.current()
             val route = state.route
             streetMap.measure(
-                ViewMeasureSpec.exactly(target.width),
-                ViewMeasureSpec.exactly(target.height)
+                android.view.View.MeasureSpec.makeMeasureSpec(
+                    target.width, android.view.View.MeasureSpec.EXACTLY
+                ),
+                android.view.View.MeasureSpec.makeMeasureSpec(
+                    target.height, android.view.View.MeasureSpec.EXACTLY
+                )
             )
             streetMap.layout(0, 0, target.width, target.height)
             updateStreetMapOverlays(route, state.location)
