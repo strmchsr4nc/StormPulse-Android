@@ -14,8 +14,9 @@ class RouteNavigationControllerTest {
         val expected = listOf(GeocodedAddress("Roxboro, NC", GeoPoint(36.393, -78.982)))
         val controller = RouteNavigationController(
             addressSearch = DestinationSearchProvider { expected },
-            routePlanner = RoutePlanningProvider { _, destination ->
-                PlannedRoute(destination, listOf(GeoPoint(1.0, 1.0), GeoPoint(2.0, 2.0)), 1000.0, 100.0, emptyList())
+            routePlanner = object : RoutePlanningProvider {
+                override fun calculateRoute(origin: GeoPoint, destination: RouteDestination) =
+                    PlannedRoute(destination, listOf(GeoPoint(1.0, 1.0), GeoPoint(2.0, 2.0)), 1000.0, 100.0, emptyList())
             },
             worker = direct,
             callbackExecutor = direct,
@@ -34,7 +35,9 @@ class RouteNavigationControllerTest {
         val expected = PlannedRoute(destination, listOf(origin, destination.point), 15000.0, 900.0, emptyList())
         val controller = RouteNavigationController(
             addressSearch = DestinationSearchProvider { emptyList() },
-            routePlanner = RoutePlanningProvider { _, _ -> expected },
+            routePlanner = object : RoutePlanningProvider {
+                override fun calculateRoute(origin: GeoPoint, destination: RouteDestination) = expected
+            },
             worker = direct,
             callbackExecutor = direct,
             ownsWorker = false
@@ -49,7 +52,10 @@ class RouteNavigationControllerTest {
     fun rejectsBlankSearch() {
         val controller = RouteNavigationController(
             DestinationSearchProvider { emptyList() },
-            RoutePlanningProvider { _, _ -> throw AssertionError("Must not route") },
+            object : RoutePlanningProvider {
+                override fun calculateRoute(origin: GeoPoint, destination: RouteDestination): PlannedRoute =
+                    throw AssertionError("Must not route")
+            },
             worker = direct,
             callbackExecutor = direct,
             ownsWorker = false
