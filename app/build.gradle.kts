@@ -21,7 +21,7 @@ android {
         targetSdk = 35
         versionCode = 3
         versionName = "1.1.0"
-        buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\\\"$mapboxToken\\\"")
+        buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\\"$mapboxToken\\"")
     }
 
     buildTypes {
