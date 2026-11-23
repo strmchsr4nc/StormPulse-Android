@@ -54,17 +54,16 @@ object RouteHazardMatcher {
                 hazard.expiresAtEpochMillis <= nowEpochMillis
             ) return@mapNotNull null
 
-            val encounter = (0 until route.lastIndex).firstNotNullOfOrNull { index ->
+            val encounter = route.indices.dropLast(1).firstNotNullOfOrNull { index ->
                 firstIntersectionFraction(route[index], route[index + 1], hazard.polygon)
-                    ?.let { fraction -> index to fraction }
+                    ?.let { index to it }
             } ?: return@mapNotNull null
-            RouteHazardMatch(hazard, encounter.first, encounter.second)
-        }.sortedWith(
-            compareBy<RouteHazardMatch> { it.firstIntersectingSegment }
-                .thenBy { it.firstEncounterFraction }
-        )
+            Triple(RouteHazardMatch(hazard, encounter.first), encounter.first, encounter.second)
+        }.sortedWith(compareBy<Triple<RouteHazardMatch, Int, Double>> { it.second }.thenBy { it.third })
+            .map { it.first }
     }
 
+    /** Returns the earliest fraction (0..1) along a segment that touches a polygon. */
     private fun firstIntersectionFraction(
         start: GeoPoint,
         end: GeoPoint,
@@ -73,81 +72,38 @@ object RouteHazardMatcher {
         if (pointInPolygon(start, polygon)) return 0.0
         val dx = end.longitude - start.longitude
         val dy = end.latitude - start.latitude
-        var earliest: Double? = null
-        polygon.indices.forEach { index ->
+        val fractions = polygon.indices.mapNotNull { index ->
             val a = polygon[index]
             val b = polygon[(index + 1) % polygon.size]
             val ex = b.longitude - a.longitude
             val ey = b.latitude - a.latitude
             val denominator = dx * ey - dy * ex
-            if (kotlin.math.abs(denominator) > 1e-12) {
-                val ax = a.longitude - start.longitude
-                val ay = a.latitude - start.latitude
-                val t = (ax * ey - ay * ex) / denominator
-                val u = (ax * dy - ay * dx) / denominator
-                if (t in 0.0..1.0 && u in 0.0..1.0) {
-                    earliest = minOf(earliest ?: t, t)
-                }
-            } else if (orientation(start, end, a) == 0) {
-                // Collinear overlap: project polygon edge endpoints onto the route.
-                val lengthSquared = dx * dx + dy * dy
-                if (lengthSquared > 0.0) {
-                    listOf(a, b).forEach { point ->
-                        val t = ((point.longitude - start.longitude) * dx +
-                            (point.latitude - start.latitude) * dy) / lengthSquared
-                        if (t in 0.0..1.0) earliest = minOf(earliest ?: t, t)
-                    }
-                }
+            if (kotlin.math.abs(denominator) < 1e-12) {
+                if (segmentsIntersect(start, end, a, b)) {
+                    listOfNotNull(
+                        fractionAlong(start, end, a),
+                        fractionAlong(start, end, b)
+                    ).filter { it in 0.0..1.0 }.minOrNull()
+                } else null
+            } else {
+                val t = ((a.longitude - start.longitude) * ey -
+                    (a.latitude - start.latitude) * ex) / denominator
+                val u = ((a.longitude - start.longitude) * dy -
+                    (a.latitude - start.latitude) * dx) / denominator
+                if (t in 0.0..1.0 && u in 0.0..1.0) t else null
             }
         }
-        if (earliest != null) return earliest
-        return if (pointInPolygon(end, polygon)) 1.0 else null
+        return fractions.minOrNull()
+            ?: if (pointInPolygon(end, polygon)) 1.0 else null
     }
 
-    private fun pointInPolygon(point: GeoPoint, polygon: List<GeoPoint>): Boolean {
-        var inside = false
-        var previous = polygon.last()
-        for (current in polygon) {
-            if (onSegment(previous, current, point)) return true
-            val crossesLatitude = (current.latitude > point.latitude) !=
-                (previous.latitude > point.latitude)
-            if (crossesLatitude) {
-                val crossingLongitude = (previous.longitude - current.longitude) *
-                    (point.latitude - current.latitude) /
-                    (previous.latitude - current.latitude) + current.longitude
-                if (point.longitude < crossingLongitude) inside = !inside
-            }
-            previous = current
-        }
-        return inside
-    }
-
-    private fun segmentsIntersect(a: GeoPoint, b: GeoPoint, c: GeoPoint, d: GeoPoint): Boolean {
-        val o1 = orientation(a, b, c)
-        val o2 = orientation(a, b, d)
-        val o3 = orientation(c, d, a)
-        val o4 = orientation(c, d, b)
-        if (o1 == 0 && onSegment(a, b, c)) return true
-        if (o2 == 0 && onSegment(a, b, d)) return true
-        if (o3 == 0 && onSegment(c, d, a)) return true
-        if (o4 == 0 && onSegment(c, d, b)) return true
-        return o1 != o2 && o3 != o4
-    }
-
-    private fun orientation(a: GeoPoint, b: GeoPoint, c: GeoPoint): Int {
-        val cross = (b.longitude - a.longitude) * (c.latitude - b.latitude) -
-            (b.latitude - a.latitude) * (c.longitude - b.longitude)
-        return when {
-            kotlin.math.abs(cross) < 1e-10 -> 0
-            cross > 0 -> 1
-            else -> 2
+    private fun fractionAlong(start: GeoPoint, end: GeoPoint, point: GeoPoint): Double {
+        val dx = end.longitude - start.longitude
+        val dy = end.latitude - start.latitude
+        return if (kotlin.math.abs(dx) >= kotlin.math.abs(dy)) {
+            if (kotlin.math.abs(dx) < 1e-12) 0.0 else (point.longitude - start.longitude) / dx
+        } else {
+            if (kotlin.math.abs(dy) < 1e-12) 0.0 else (point.latitude - start.latitude) / dy
         }
     }
 
-    private fun onSegment(a: GeoPoint, b: GeoPoint, p: GeoPoint): Boolean =
-        p.longitude <= maxOf(a.longitude, b.longitude) + 1e-10 &&
-            p.longitude >= minOf(a.longitude, b.longitude) - 1e-10 &&
-            p.latitude <= maxOf(a.latitude, b.latitude) + 1e-10 &&
-            p.latitude >= minOf(a.latitude, b.latitude) - 1e-10 &&
-            orientation(a, b, p) == 0
-}
