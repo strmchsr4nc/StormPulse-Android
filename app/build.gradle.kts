@@ -32,4 +32,6 @@ dependencies {
     // Android Auto projected-display support; phone UI remains the existing WebView.
     implementation("androidx.car.app:app:1.7.0")
     implementation("androidx.car.app:app-projected:1.7.0")
+
+    testImplementation("junit:junit:4.13.2")
 }
