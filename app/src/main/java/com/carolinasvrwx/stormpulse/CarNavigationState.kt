@@ -1,8 +1,10 @@
 package com.carolinasvrwx.stormpulse
 
+import android.os.Handler
+import android.os.Looper
+
 /**
- * Small process-local bridge between the phone navigation activity and the
- * Android Auto CarApp session. It carries only navigation presentation state;
+ * Process-local presentation bridge between phone navigation and Android Auto.
  * GPS ownership and route calculation remain in NavigationActivity.
  */
 data class CarNavigationSnapshot(
@@ -14,6 +16,7 @@ data class CarNavigationSnapshot(
 )
 
 object CarNavigationState {
+    private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var snapshot = CarNavigationSnapshot()
     @Volatile private var listener: (() -> Unit)? = null
 
@@ -21,7 +24,7 @@ object CarNavigationState {
 
     fun setListener(callback: (() -> Unit)?) {
         listener = callback
-        callback?.invoke()
+        dispatch(callback)
     }
 
     fun update(
@@ -31,18 +34,18 @@ object CarNavigationState {
         distanceToManeuverMeters: Double? = snapshot.distanceToManeuverMeters,
         active: Boolean = snapshot.active
     ) {
-        snapshot = CarNavigationSnapshot(
-            route = route,
-            location = location,
-            nextInstruction = nextInstruction,
-            distanceToManeuverMeters = distanceToManeuverMeters,
-            active = active
-        )
-        listener?.invoke()
+        snapshot = CarNavigationSnapshot(route, location, nextInstruction, distanceToManeuverMeters, active)
+        dispatch(listener)
     }
 
     fun clear() {
         snapshot = CarNavigationSnapshot()
-        listener?.invoke()
+        dispatch(listener)
+    }
+
+    private fun dispatch(callback: (() -> Unit)?) {
+        if (callback == null) return
+        if (Looper.myLooper() == Looper.getMainLooper()) callback()
+        else mainHandler.post { if (listener === callback) callback() }
     }
 }
