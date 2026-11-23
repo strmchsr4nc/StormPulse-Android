@@ -103,14 +103,18 @@ class OsrmRoutePlanningProvider(
 class NominatimAddressSearch(
     private val userAgent: String = "StormPulse-Android/1.1 (info@carolinasvrwxresearch.com)"
 ) {
-    @Synchronized
     fun search(query: String, limit: Int = 5): List<GeocodedAddress> {
         require(query.isNotBlank()) { "Enter a destination address." }
         require(limit in 1..10) { "Result limit must be between 1 and 10." }
-        val now = System.currentTimeMillis()
-        val wait = 1_100L - (now - lastRequestAt)
-        if (wait > 0) Thread.sleep(wait)
-        lastRequestAt = System.currentTimeMillis()
+
+        // Nominatim's limit applies across the app, not per geocoder instance.
+        // Synchronize the request start globally so simultaneous searches cannot
+        // bypass the one-request-per-second policy through separate instances.
+        synchronized(rateLimitLock) {
+            val wait = 1_100L - (System.currentTimeMillis() - lastRequestAt)
+            if (wait > 0L) Thread.sleep(wait)
+            lastRequestAt = System.currentTimeMillis()
+        }
 
         val encoded = URLEncoder.encode(query.trim(), Charsets.UTF_8.name())
         val endpoint = "https://nominatim.openstreetmap.org/search" +
@@ -127,6 +131,7 @@ class NominatimAddressSearch(
     }
 
     companion object {
+        private val rateLimitLock = Any()
         @Volatile private var lastRequestAt: Long = 0L
     }
 }
