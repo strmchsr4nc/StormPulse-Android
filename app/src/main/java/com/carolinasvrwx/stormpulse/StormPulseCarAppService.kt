@@ -7,9 +7,16 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Typeface
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polyline
 import android.os.Handler
 import android.os.Looper
 import android.view.Surface
+import android.view.View.MeasureSpec as ViewMeasureSpec
 import androidx.car.app.AppManager
 import androidx.car.app.CarAppService
 import androidx.car.app.CarContext
@@ -67,6 +74,17 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
     private val navigationManager = carContext.getCarService(NavigationManager::class.java)
     private var navigationStarted = false
     private var mapSurface: Surface? = null
+    private val streetMap: MapView = MapView(carContext).apply {
+        Configuration.getInstance().userAgentValue = carContext.packageName
+        setTileSource(TileSourceFactory.MAPNIK)
+        setMultiTouchControls(false)
+        setUseDataConnection(true)
+        controller.setZoom(11.0)
+    }
+    private var routeOverlay: Polyline? = null
+    private var currentPositionMarker: Marker? = null
+    private var destinationMarker: Marker? = null
+    private var lastCameraRoute: PlannedRoute? = null
 
     private val navigationCallback = object : NavigationManagerCallback {
         override fun onStopNavigation() {
@@ -98,21 +116,22 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
 
         override fun onScale(focusX: Float, focusY: Float, scaleFactor: Float) {
             if (!scaleFactor.isFinite() || scaleFactor <= 0f) return
-            mapZoom = (mapZoom * scaleFactor).coerceIn(0.75f, 4f)
+            val nextZoom = (streetMap.zoomLevelDouble + kotlin.math.ln(scaleFactor) / kotlin.math.ln(2.0))
+                .coerceIn(3.0, 19.0)
+            streetMap.controller.setZoom(nextZoom)
             drawMapSurface()
         }
 
         override fun onScroll(distanceX: Float, distanceY: Float) {
-            mapPanX = (mapPanX + distanceX).coerceIn(-1200f, 1200f)
-            mapPanY = (mapPanY + distanceY).coerceIn(-900f, 900f)
+            streetMap.scrollBy(distanceX.toInt(), distanceY.toInt())
             drawMapSurface()
         }
 
         override fun onFling(velocityX: Float, velocityY: Float) {
-            mapPanX = (mapPanX + velocityX.coerceIn(-900f, 900f) * 0.12f)
-                .coerceIn(-1200f, 1200f)
-            mapPanY = (mapPanY + velocityY.coerceIn(-900f, 900f) * 0.12f)
-                .coerceIn(-900f, 900f)
+            streetMap.scrollBy(
+                (velocityX.coerceIn(-900f, 900f) * 0.12f).toInt(),
+                (velocityY.coerceIn(-900f, 900f) * 0.12f).toInt()
+            )
             drawMapSurface()
         }
     }
@@ -156,11 +175,7 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
                     .build()
             )
             .setPanModeListener(PanModeListener { isInPanMode ->
-                if (!isInPanMode) {
-                    mapPanX = 0f
-                    mapPanY = 0f
-                    drawMapSurface()
-                }
+                if (!isInPanMode) drawMapSurface()
             })
             .setNavigationInfo(
                 RoutingInfo.Builder()
@@ -222,84 +237,24 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
         try {
             canvas = surface.lockCanvas(null)
             val target = canvas
-            target.drawColor(Color.rgb(12, 24, 35))
             val state = CarNavigationState.current()
             val route = state.route
-            val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.rgb(35, 58, 68)
-                strokeWidth = 1.5f
-                style = Paint.Style.STROKE
-            }
-            var x = 0f
-            while (x < target.width) {
-                target.drawLine(x, 0f, x, target.height.toFloat(), gridPaint)
-                x += 80f
-            }
-            var y = 0f
-            while (y < target.height) {
-                target.drawLine(0f, y, target.width.toFloat(), y, gridPaint)
-                y += 80f
-            }
+            streetMap.measure(
+                ViewMeasureSpec.exactly(target.width),
+                ViewMeasureSpec.exactly(target.height)
+            )
+            streetMap.layout(0, 0, target.width, target.height)
+            updateStreetMapOverlays(route, state.location)
+            streetMap.draw(target)
+            // Keep attribution visible over the rendered map surface.
+            target.drawText("© OpenStreetMap contributors", 16f, target.height - 14f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    textSize = 14f
+                    setShadowLayer(3f, 1f, 1f, Color.BLACK)
+                })
 
-            if (route != null && route.geometry.size >= 2) {
-                val points = route.geometry
-                val visiblePoints = if (state.location != null) points + state.location else points
-                // Project geographic coordinates into Web Mercator so route
-                // geometry keeps a consistent map-like shape at different latitudes.
-                fun mercatorY(latitude: Double): Double {
-                    val clamped = latitude.coerceIn(-85.05112878, 85.05112878)
-                    val radians = Math.toRadians(clamped)
-                    return kotlin.math.ln(kotlin.math.tan(Math.PI / 4.0 + radians / 2.0))
-                }
-                val projected = visiblePoints.map { it.longitude to mercatorY(it.latitude) }
-                val minX = projected.minOf { it.first }
-                val maxX = projected.maxOf { it.first }
-                val minY = projected.minOf { it.second }
-                val maxY = projected.maxOf { it.second }
-                val xSpan = (maxX - minX).coerceAtLeast(0.000001)
-                val ySpan = (maxY - minY).coerceAtLeast(0.000001)
-                val pad = 54f
-                val usableW = (target.width - pad * 2).coerceAtLeast(1f)
-                val usableH = (target.height - pad * 2).coerceAtLeast(1f)
-                val scale = minOf(usableW / xSpan, usableH / ySpan)
-                val centerX = (minX + maxX) / 2.0
-                val centerY = (minY + maxY) / 2.0
-                val saveCount = target.save()
-                target.clipRect(0f, 0f, target.width.toFloat(), target.height.toFloat())
-                fun px(lon: Double) = target.width / 2f + mapPanX +
-                    (((lon - centerX) * scale).toFloat() * mapZoom)
-                fun py(lat: Double) = target.height / 2f + mapPanY -
-                    (((mercatorY(lat) - centerY) * scale).toFloat() * mapZoom)
-                val path = Path()
-                points.forEachIndexed { index, point ->
-                    if (index == 0) path.moveTo(px(point.longitude), py(point.latitude))
-                    else path.lineTo(px(point.longitude), py(point.latitude))
-                }
-                target.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.rgb(15, 80, 130)
-                    strokeWidth = 18f
-                    style = Paint.Style.STROKE
-                    strokeCap = Paint.Cap.ROUND
-                    strokeJoin = Paint.Join.ROUND
-                })
-                target.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.rgb(55, 190, 255)
-                    strokeWidth = 9f
-                    style = Paint.Style.STROKE
-                    strokeCap = Paint.Cap.ROUND
-                    strokeJoin = Paint.Join.ROUND
-                })
-                val destinationPoint = route.destination.point
-                target.drawCircle(px(destinationPoint.longitude), py(destinationPoint.latitude), 11f,
-                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 190, 65) })
-                state.location?.let { location ->
-                    target.drawCircle(px(location.longitude), py(location.latitude), 17f,
-                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
-                    target.drawCircle(px(location.longitude), py(location.latitude), 11f,
-                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(30, 160, 255) })
-                }
-                target.restoreToCount(saveCount)
-            } else {
+            if (route == null) {
                 target.drawText("STORMPULSE", 32f, 54f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = Color.WHITE
                     textSize = 34f
@@ -310,17 +265,76 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
                         color = Color.rgb(105, 210, 255)
                         textSize = 22f
                     })
-                target.drawText("Select a destination on your phone to begin", 32f,
-                    target.height - 36f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = Color.rgb(180, 205, 220)
-                        textSize = 18f
-                    })
             }
         } catch (_: Exception) {
             // The host may replace its surface while a frame is being drawn.
         } finally {
             if (canvas != null) try { surface.unlockCanvasAndPost(canvas) } catch (_: Exception) { }
         }
+    }
+
+
+    private fun updateStreetMapOverlays(route: PlannedRoute?, location: GeoPoint?) {
+        if (routeOverlay == null && route != null) {
+            routeOverlay = Polyline().apply {
+                outlinePaint.color = Color.rgb(35, 165, 245)
+                outlinePaint.strokeWidth = 12f
+            }
+            streetMap.overlays.add(routeOverlay)
+        }
+        routeOverlay?.setPoints(route?.geometry?.map {
+            org.osmdroid.util.GeoPoint(it.latitude, it.longitude)
+        } ?: emptyList())
+
+        if (destinationMarker == null && route != null) {
+            destinationMarker = Marker(streetMap).apply {
+                title = route.destination.label
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            }
+            streetMap.overlays.add(destinationMarker)
+        }
+        route?.let {
+            destinationMarker?.position = org.osmdroid.util.GeoPoint(
+                it.destination.point.latitude, it.destination.point.longitude
+            )
+        }
+
+        if (location != null && currentPositionMarker == null) {
+            currentPositionMarker = Marker(streetMap).apply {
+                title = "Current location"
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+            }
+            streetMap.overlays.add(currentPositionMarker)
+        }
+        if (location != null) {
+            currentPositionMarker?.position =
+                org.osmdroid.util.GeoPoint(location.latitude, location.longitude)
+        }
+
+        if (route != null && route !== lastCameraRoute) {
+            val boxPoints = route.geometry.map {
+                org.osmdroid.util.GeoPoint(it.latitude, it.longitude)
+            }
+            if (boxPoints.isNotEmpty()) {
+                val north = boxPoints.maxOf { it.latitude }
+                val south = boxPoints.minOf { it.latitude }
+                val east = boxPoints.maxOf { it.longitude }
+                val west = boxPoints.minOf { it.longitude }
+                streetMap.post {
+                    try {
+                        streetMap.zoomToBoundingBox(
+                            BoundingBox(north, east, south, west), false, 72
+                        )
+                    } catch (_: Exception) {
+                        streetMap.controller.setCenter(boxPoints.first())
+                    }
+                }
+            }
+            lastCameraRoute = route
+        } else if (route == null) {
+            lastCameraRoute = null
+        }
+        streetMap.invalidate()
     }
 
     private fun cleanup() {
@@ -337,6 +351,8 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
             carContext.getCarService(AppManager::class.java).setSurfaceCallback(null)
         } catch (_: Exception) { }
         mapSurface = null
+        try { streetMap.onPause() } catch (_: Exception) { }
+        streetMap.overlays.clear()
         lifecycle.removeObserver(lifecycleObserver)
     }
 }
