@@ -7,15 +7,16 @@
     <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
 
     <application
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
         android:allowBackup="false"
         android:label="StormPulse"
         android:icon="@drawable/ic_stormpulse"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false"
         android:supportsRtl="true">
+
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
 
         <activity
             android:name=".MainActivity"
