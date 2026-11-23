@@ -92,7 +92,7 @@ class NavigationActivity : Activity() {
             text = "StormPulse Navigation"; textSize = 21f; setTextColor(Color.WHITE)
         }
         destinationInput = EditText(this).apply {
-            hint = "Enter a US destination address"; textSize = 16f; singleLine = true
+            hint = "Enter a US destination address"; textSize = 16f; setSingleLine(true)
             setTextColor(Color.WHITE); setHintTextColor(Color.LTGRAY)
             setPadding(dp(12), 0, dp(12), 0); setBackgroundColor(Color.rgb(35, 45, 60))
         }
