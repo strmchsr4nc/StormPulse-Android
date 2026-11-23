@@ -74,6 +74,12 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
         }
     }
 
+    // Host gestures are translated into a simple map camera. Keep the camera
+    // bounded so accidental gestures cannot make the route disappear.
+    private var mapZoom = 1f
+    private var mapPanX = 0f
+    private var mapPanY = 0f
+
     private val surfaceCallback = object : SurfaceCallback {
         override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
             mapSurface = surfaceContainer.surface
@@ -86,6 +92,26 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
 
         override fun onVisibleAreaChanged(visibleArea: android.graphics.Rect) = drawMapSurface()
         override fun onStableAreaChanged(stableArea: android.graphics.Rect) = drawMapSurface()
+
+        override fun onScale(focusX: Float, focusY: Float, scaleFactor: Float) {
+            if (!scaleFactor.isFinite() || scaleFactor <= 0f) return
+            mapZoom = (mapZoom * scaleFactor).coerceIn(0.75f, 4f)
+            drawMapSurface()
+        }
+
+        override fun onScroll(distanceX: Float, distanceY: Float) {
+            mapPanX = (mapPanX + distanceX).coerceIn(-1200f, 1200f)
+            mapPanY = (mapPanY + distanceY).coerceIn(-900f, 900f)
+            drawMapSurface()
+        }
+
+        override fun onFling(velocityX: Float, velocityY: Float) {
+            mapPanX = (mapPanX + velocityX.coerceIn(-900f, 900f) * 0.12f)
+                .coerceIn(-1200f, 1200f)
+            mapPanY = (mapPanY + velocityY.coerceIn(-900f, 900f) * 0.12f)
+                .coerceIn(-900f, 900f)
+            drawMapSurface()
+        }
     }
 
     private val lifecycleObserver = LifecycleEventObserver { _, event ->
@@ -212,8 +238,10 @@ private class StormPulseCarNavigationScreen(carContext: CarContext) : Screen(car
                 val scale = minOf(usableH / latSpan, usableW / lonSpan)
                 val centerLat = (minLat + maxLat) / 2.0
                 val centerLon = (minLon + maxLon) / 2.0
-                fun px(lon: Double) = target.width / 2f + ((lon - centerLon) * scale).toFloat()
-                fun py(lat: Double) = target.height / 2f - ((lat - centerLat) * scale).toFloat()
+                fun px(lon: Double) = target.width / 2f + mapPanX +
+                    (((lon - centerLon) * scale).toFloat() * mapZoom)
+                fun py(lat: Double) = target.height / 2f + mapPanY -
+                    (((lat - centerLat) * scale).toFloat() * mapZoom)
                 val path = Path()
                 points.forEachIndexed { index, point ->
                     if (index == 0) path.moveTo(px(point.longitude), py(point.latitude))
