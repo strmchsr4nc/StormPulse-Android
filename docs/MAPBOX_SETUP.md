@@ -1,43 +1,33 @@
-# Mapbox setup for StormPulse
+# Free GPS routing for StormPulse
 
-StormPulse uses Mapbox Geocoding API v6 for destination search and Mapbox
-Directions API v5 for route calculation. The current default profile is
-`mapbox/driving-traffic`; `mapbox/driving`, walking, and cycling are also
-available in the provider.
+StormPulse uses OpenStreetMap data with two free, keyless public services:
 
-## Configure a token
+- **OSRM** (Open Source Routing Machine) at `router.project-osrm.org` calculates driving routes, route geometry, distance, duration, and turn steps.
+- **Nominatim** at `nominatim.openstreetmap.org` searches destination addresses.
 
-Create a **public** Mapbox access token in your Mapbox account. Grant only the
-public scopes needed for Geocoding and Directions. Do not use a secret token
-or commit a token to this repository.
+No Mapbox account, API token, billing setup, or paid SDK is required.
 
-For local development, add this to your user-level Gradle properties file
-(`~/.gradle/gradle.properties`):
+## Important public-service limits
 
-```properties
-MAPBOX_ACCESS_TOKEN=pk.your_public_token_here
-```
+These are community-operated public endpoints, not guaranteed commercial services.
+The OSRM demo server is best-effort and may throttle or change availability. Public
+Nominatim requires an identifying User-Agent, allows at most one request per
+second, and prohibits autocomplete/bulk use. StormPulse therefore must submit
+Nominatim searches only after the user explicitly searches, not on every keystroke.
+For a widely distributed production app, the recommended next step is hosting
+OSRM and Nominatim or using a provider with an explicit production SLA.
 
-Alternatively, set the `MAPBOX_ACCESS_TOKEN` environment variable before
-running Gradle. The environment variable takes precedence over the Gradle
-property. CI builds without a token still compile, but Mapbox requests will
-report that configuration is missing.
+## GPS and navigation
 
-A token included in an Android APK can be extracted. Treat it as a public
-client token: restrict its scopes and usage as supported by Mapbox, monitor
-usage, and rotate it if exposed beyond intended distribution.
+The routing provider calculates a route between the GPS origin supplied by the
+app and the selected destination. Android location permissions, continuous GPS
+tracking, map drawing, rerouting, and driver-facing UI still need to be connected
+to this provider. The route provider itself does not activate GPS or display a map.
+All network calls must run off the Android main thread.
 
-## API behavior and current scope
+## OpenStreetMap attribution
 
-- Address search uses temporary Geocoding v6 results and does not persist them.
-  Mapbox's permanent-geocoding option has separate account and storage terms.
-- Route calculation requests full GeoJSON route geometry, traffic-aware driving
-  where supported, and turn-by-turn steps with imperial voice instruction
-  wording.
-- The provider currently returns the first route. Alternative routes are
-  requested but not yet exposed in the app's route-selection UI.
-- The phone WebView and Android Auto UI are not yet wired to these provider
-  classes. Call network methods on a background thread; they perform blocking
-  HTTP requests.
-- A successful API response is required before displaying distance, ETA, or
-  maneuver information. Never substitute an estimated or fabricated route.
+When displaying OpenStreetMap-derived map tiles or data, show the required
+OpenStreetMap attribution and follow the tile/service usage policies. Routing
+service availability is not a safety guarantee; drivers must obey road signs and
+conditions.
