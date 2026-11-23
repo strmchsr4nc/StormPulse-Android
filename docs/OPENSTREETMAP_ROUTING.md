@@ -1,33 +1,23 @@
-# Free GPS routing for StormPulse
+# OpenStreetMap routing and map data for StormPulse
 
-StormPulse uses OpenStreetMap data with two free, keyless public services:
+## Services currently used
 
-- **OSRM** (Open Source Routing Machine) at `router.project-osrm.org` calculates driving routes, route geometry, distance, duration, and turn steps.
-- **Nominatim** at `nominatim.openstreetmap.org` searches destination addresses.
+- **OSRM** at `router.project-osrm.org` calculates driving routes, route geometry, distance, duration, and turn steps.
+- **Nominatim** at `nominatim.openstreetmap.org` searches US destination addresses after an explicit user action.
+- **osmdroid** renders OpenStreetMap-based tiles in the native phone navigation activity.
 
-No Mapbox account, API token, billing setup, or paid SDK is required.
+The routing and address-search requests run off the Android main thread. Nominatim requests are serialized and throttled to approximately one request per second, and requests identify StormPulse with a User-Agent.
 
-## Important public-service limits
+## Public-service limits
 
-These are community-operated public endpoints, not guaranteed commercial services.
-The OSRM demo server is best-effort and may throttle or change availability. Public
-Nominatim requires an identifying User-Agent, allows at most one request per
-second, and prohibits autocomplete/bulk use. StormPulse therefore must submit
-Nominatim searches only after the user explicitly searches, not on every keystroke.
-For a widely distributed production app, the recommended next step is hosting
-OSRM and Nominatim or using a provider with an explicit production SLA.
+These community-operated endpoints are best-effort and have no production SLA. Public Nominatim prohibits autocomplete and bulk geocoding. Do not add keystroke-based requests or batch address harvesting. For a widely distributed production app, use appropriately hosted services or a provider with an explicit production SLA and terms suitable for the expected traffic.
 
-## GPS and navigation
+## Current map implementation status
 
-The routing provider calculates a route between the GPS origin supplied by the
-app and the selected destination. Android location permissions, continuous GPS
-tracking, map drawing, rerouting, and driver-facing UI still need to be connected
-to this provider. The route provider itself does not activate GPS or display a map.
-All network calls must run off the Android main thread.
+- **Phone navigation activity:** osmdroid street-map tiles, route polyline, destination marker, and GPS marker are implemented.
+- **Android Auto:** the host-provided surface currently draws the route line and current-position marker on a custom dark background. Real street-map tile rendering is not integrated on the Android Auto surface yet.
+- OpenStreetMap-derived map data and tiles require proper attribution and compliance with the tile provider's usage policy. Do not assume the public tile server is suitable for heavy production use.
 
-## OpenStreetMap attribution
+## Navigation and safety
 
-When displaying OpenStreetMap-derived map tiles or data, show the required
-OpenStreetMap attribution and follow the tile/service usage policies. Routing
-service availability is not a safety guarantee; drivers must obey road signs and
-conditions.
+Route geometry, duration, and turn steps are supplied by the routing service. GPS tracking is foreground-only in the current activity; the app does not claim background navigation after the activity is stopped. Off-route recalculation is best-effort and throttled. NWS route alerts are advisory and depend on the availability and geometry of official alert data. No route is guaranteed to avoid hazardous weather or road conditions.
